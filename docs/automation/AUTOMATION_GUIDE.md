@@ -4,7 +4,7 @@
 참고: refer_CLAUDE.md(타 프로젝트 개발 규칙) 구조를 참고하되, 규칙 내용은 본 프로젝트에서
       사용자와 별도로 확정한 결정 사항을 따름
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-27
+최근 변경일: 2026-08-29
 승인일: 2026-08-27
 ---
 
@@ -260,17 +260,25 @@ Selenium 코드를 작성하기 전에 다음 순서로 실제 페이지를 확�
 ### 6.1 우선순위
 
 1. `id` 속성
-2. `name` 속성
-3. 안정적인 CSS Selector(구조 변경에 덜 민감한 속성 기반)
-4. 상대 XPath (텍스트/속성 결합 등 다른 방법으로 고유 식별이 어려울 때만, 최후 수단)
+2. `data-qa` 속성(테스트 전용 속성, 존재가 확인된 화면에 한함 — 아래 실측 근거 참고)
+3. `name` 속성
+4. 안정적인 CSS Selector(구조 변경에 덜 민감한 속성 기반)
+5. 상대 XPath (텍스트/속성 결합 등 다른 방법으로 고유 식별이 어려울 때만, 최후 수단)
 
 **Full XPath(`/html/body/div[1]/...`)는 절대 금지**합니다 — DOM 구조 변경에 매우 취약해
 유지보수가 불가능합니다.
 
-> `automationexercise.com`은 `data-testid` 같은 테스트 전용 속성을 제공하지 않는 실제
-> 서비스 사이트이므로, 참고 프로젝트(`refer_CLAUDE.md`)의 "data-* 속성" 우선순위 단계는
-> 이 프로젝트에는 그대로 적용하지 않고 제외했습니다. 5절 탐색 과정에서 해당 속성이 실제로
-> 존재함이 확인되면 그때 우선순위에 반영합니다.
+> 최초 작성 시점(2026-08-27)에는 `automationexercise.com`이 `data-testid` 같은 테스트
+> 전용 속성을 제공하지 않는다고 보아 참고 프로젝트(`refer_CLAUDE.md`)의 "data-* 속성"
+> 우선순위 단계를 제외했었습니다. 이후 Phase 1 Task 2(LoginPage 구현, 2026-08-29)에서
+> automation-developer-agent가 Playwright MCP로 `/login` 페이지(로그인 폼 + 회원가입 폼)를
+> 실측한 결과 `data-qa` 속성(예: `data-qa="login-email"`, `data-qa="login-password"`,
+> `data-qa="login-button"`, `data-qa="signup-name"`, `data-qa="signup-email"`,
+> `data-qa="signup-button"`)이 실제로 존재하며, 특히 `name="email"`이 같은 페이지 내
+> 로그인/회원가입 두 폼에 중복 존재해 `name` 단독으로는 고유 식별이 불가능한 반면
+> `data-qa`는 두 폼 사이에서 겹치지 않는 고유값임을 확인했습니다. 이에 따라 위 5절 원칙대로
+> 우선순위를 갱신했습니다(사용자 승인, 2026-08-29). `data-qa`가 확인되지 않은 화면 요소는
+> 이 우선순위를 적용할 수 없으므로 그대로 3순위(`name`)부터 적용합니다.
 
 ### 6.2 정의 위치
 
@@ -527,3 +535,7 @@ def login_page(driver):
  실제 pytest 실행으로 재현·확인한 사실을 반영해 "3.1 Import 경로 규칙" 절 신규 추가\
  (automation/pytest.ini 위치상 automation. prefix import가 실제로는 동작하지 않고\
  automation/을 루트로 삼는 import만 동작함, 사용자 승인 완료). | 승인완료 |
+| 2026-08-29 | Phase 1 Task 2(LoginPage 구현) 중 automation-developer-agent가 Playwright MCP로\
+ `/login` 페이지를 실측해 `data-qa` 속성이 실제로 존재함을 확인(로그인/회원가입 두 폼에서\
+ `name="email"`이 중복되어 `name` 단독으로는 고유 식별 불가함도 함께 확인)한 사실을 반영해\
+ 6.1절 Locator 우선순위에 `data-qa`(2순위, id 다음 name 이전)를 추가(사용자 승인 완료). | 승인완료 |

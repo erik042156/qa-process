@@ -6,7 +6,7 @@
 관련 Automation Candidate 문서: [tc/automation-candidates/login-logout.md, tc/automation-candidates/signup-delete-account.md, tc/automation-candidates/top-navigation.md, tc/automation-candidates/product-search.md, tc/automation-candidates/cart.md, tc/automation-candidates/product-detail.md, tc/automation-candidates/page-ui.md]
 관련 Automation Guide: docs/automation/AUTOMATION_GUIDE.md
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-27
+최근 변경일: 2026-08-29
 승인일: 2026-08-27
 ---
 
@@ -176,6 +176,15 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 - 우선순위 근거: LoginPage를 공유하는 화면이라 Page Object 재사용 효율이 높고, 회원가입/
   계정삭제 Happy Path가 다수 P0(Score 25~26)로 Business Criticality가 매우 높다. 이후
   Phase에서 필요한 "동적 계정 생성" Factory 유틸리티(11.2절)도 이 Phase에서 함께 마련된다.
+- **[Phase 1 인수 사항]** Phase 1에서 구현된 `LoginPage.click_new_user_signup()`(automation/pages/login_page.py)은
+  "New User Signup!" 제목(h2) 영역을 클릭하는 구조로 구현되어 있으나, 실측 결과 해당 h2에는
+  클릭 핸들러가 없어 클릭 자체가 실질적 효과가 없다(automation-developer-agent 2026-08-29
+  보고, Playwright MCP 실측 기반). Phase 1의 Approved TC는 이 메서드를 요구하지 않아 Phase 1
+  범위에서는 문제가 없었지만, 이 Phase(회원가입)는 실제로 Name/Email 입력 후 Signup 버튼을
+  클릭해 `/signup`으로 진입해야 하므로, 이 메서드를 그대로 재사용하지 말고 signup-form의
+  Name/Email 입력 필드와 Signup 버튼(Task 2 구현 시 확인된 data-qa 속성 후보: signup-name,
+  signup-email, signup-button)을 사용하는 방식으로 재작업이 필요하다. 실제 재작업 여부와
+  구체적 구현은 Phase 2 착수 시점에 automation-developer-agent가 재확인 후 진행한다.
 
 ### Phase 3: 상단 네비게이션 (top-navigation) 자동화 구현
 
@@ -325,6 +334,11 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
      Page Object 관점에서는 두 TC가 동일한 상품 카드 Locator를 공유하게 되므로, 구현 단계
      (Shrimp Task 분해 이후)에서 중복 Locator 정의가 발생하지 않도록 유의가 필요하다는
      점만 참고로 남긴다(이 Roadmap 문서 자체의 범위 밖).
+3. **[Phase 1 구현 중 발견, 2026-08-29 추가] LoginPage.click_new_user_signup() Phase 2 재작업
+   필요 가능성**: Phase 1 Task 2(LoginPage 구현) 실측 결과 "New User Signup!" 클릭 메서드가
+   실질적 효과가 없는 구조로 확인되었다. 5절 Phase 2 항목에 인수 사항으로 기록해두었으며,
+   Phase 2 착수 시 실제 재작업 필요 여부를 다시 판단한다(현재는 사용자에게 미리 알리는
+   목적의 예고 기록이며, 이 자체가 Roadmap의 Phase 순서나 범위를 변경하지는 않는다).
 
 ## 변경 이력
 
@@ -332,3 +346,4 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 |---|---|---|
 | 2026-08-27 | 최초 작성. `docs/tc/automation-candidates/` 7개 문서 전체를 재조회하여 자동화대상확정 Feature 7개(login-logout, cart, page-ui, product-detail, product-search, signup-delete-account, top-navigation)를 확인하고, 원본 TC 문서와의 정합성(TC ID 존재, 승인완료 상태, 원본 변경 여부)을 재검증(불일치 없음). 관련 Feature PRD 7건 및 Project PRD를 확인해 기능적 의존성(로그인 필요 여부, Add to Cart 모달 공유 관계 등)을 근거로 Phase 1~7 순서를 판단해 초안 작성. 사용자 검토 대기 중. | 초안 |
 | 2026-08-27 | 사용자가 8절에 기록된 판단 필요 사항 두 가지(1. signup-delete-account를 top-navigation보다 먼저 배치, 2. cart를 product-detail보다 먼저 배치)에 대해 "1,2번 승인"으로 동의. 이후 Roadmap 전체에 대한 최종 승인 여부를 별도로 재확인한 결과 사용자가 "네, 승인합니다"라고 명확한 최종 승인 의사를 밝힘. | 승인완료 |
+| 2026-08-29 | 사용자 재승인에 따른 부분 갱신. Phase 1 Task 2(LoginPage 구현) 완료 후 automation-developer-agent가 보고한 리스크(`click_new_user_signup()`이 클릭 핸들러 없는 h2를 클릭하는 구조라 Phase 2에서 재작업이 필요할 수 있음)를 5절 Phase 2 항목과 8절 리스크 목록에 인수 사항으로 기록. Phase 순서/범위/Definition of Done 등 기존 내용은 변경하지 않음. | 승인완료 |

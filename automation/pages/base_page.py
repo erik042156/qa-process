@@ -104,3 +104,35 @@ class BasePage:
         except NoSuchElementException:
             self.logger.error("요소를 찾을 수 없음: %s", locator)
             raise
+
+    def wait_for_url_to_be(self, url: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """URL이 지정한 값과 정확히 일치할 때까지 대기한다.
+
+        클릭 등으로 트리거되는 페이지 리다이렉트 직후 `driver.current_url`을 바로
+        읽으면 리다이렉트가 아직 완료되지 않은 상태를 읽을 수 있으므로(Flaky 원인),
+        URL 비교 전에 이 메서드로 리다이렉트 완료를 명시적으로 기다린다.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(EC.url_to_be(url))
+            self.logger.debug("URL이 기대값과 일치함: %s", url)
+        except TimeoutException:
+            self.logger.error(
+                "URL이 지정된 시간 내에 기대값과 일치하지 않음(Timeout): %s", url
+            )
+            raise
+
+    def wait_for_url_contains(self, text: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """URL에 지정한 문자열이 포함될 때까지 대기한다.
+
+        클릭 등으로 트리거되는 페이지 리다이렉트 직후 `driver.current_url`을 바로
+        읽으면 리다이렉트가 아직 완료되지 않은 상태를 읽을 수 있으므로(Flaky 원인),
+        URL 비교 전에 이 메서드로 리다이렉트 완료를 명시적으로 기다린다.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(EC.url_contains(text))
+            self.logger.debug("URL에 기대 문자열이 포함됨: %s", text)
+        except TimeoutException:
+            self.logger.error(
+                "URL에 지정된 시간 내에 기대 문자열이 포함되지 않음(Timeout): %s", text
+            )
+            raise
