@@ -6,7 +6,7 @@
 관련 Automation Candidate 문서: [tc/automation-candidates/login-logout.md, tc/automation-candidates/signup-delete-account.md, tc/automation-candidates/top-navigation.md, tc/automation-candidates/product-search.md, tc/automation-candidates/cart.md, tc/automation-candidates/product-detail.md, tc/automation-candidates/page-ui.md]
 관련 Automation Guide: docs/automation/AUTOMATION_GUIDE.md
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-29
+최근 변경일: 2026-08-30
 승인일: 2026-08-27
 ---
 
@@ -340,6 +340,25 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
    Phase 2 착수 시 실제 재작업 필요 여부를 다시 판단한다(현재는 사용자에게 미리 알리는
    목적의 예고 기록이며, 이 자체가 Roadmap의 Phase 순서나 범위를 변경하지는 않는다).
 
+## 9. 진행 현황 (구현 단계)
+
+이 절은 Roadmap 승인 이후 실제 구현 진행 상황을 사용자가 한눈에 확인할 수 있도록 기록하는
+스냅샷이다. **Source of Truth는 항상 Repository Code와 Shrimp Task 상태이며(CLAUDE.md 8절),
+이 표는 그 결과를 요약해 옮겨 적은 것일 뿐 판단 기준 자체가 아니다.** 실제 구현 상태와 이
+표가 다르게 보이면 Repository Code를 기준으로 한다.
+
+| Phase | Feature | 상태 | 비고 |
+|---|---|---|---|
+| Phase 0 | 공통 기반 구축 | 완료 | 2026-08-27, 커밋 `790ff26` |
+| Phase 1 | login-logout | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료, 커밋 `ae6ba0c`, `origin/master`(https://github.com/erik042156/qa-process) push 완료 |
+| Phase 2 | signup-delete-account | 착수 전 | 다음 착수 대상 |
+| Phase 3 | top-navigation | 착수 전 | |
+| Phase 4 | product-search | 착수 전 | |
+| Phase 5 | cart | 착수 전 | |
+| Phase 6 | product-detail | 착수 전 | |
+| Phase 7 | page-ui | 착수 전 | |
+| Phase Final | CI/CD 및 Slack 알림 연동 | 보류(사용자 결정) | "CI 워크플로우 작성은 모든 코드가 완성된 이후 진행"(2026-08-30 사용자 지시) — Feature Phase 1~7이 모두 완료된 뒤 착수 |
+
 ## 변경 이력
 
 | 날짜 | 변경 사유 | 상태 |
@@ -347,3 +366,4 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | 2026-08-27 | 최초 작성. `docs/tc/automation-candidates/` 7개 문서 전체를 재조회하여 자동화대상확정 Feature 7개(login-logout, cart, page-ui, product-detail, product-search, signup-delete-account, top-navigation)를 확인하고, 원본 TC 문서와의 정합성(TC ID 존재, 승인완료 상태, 원본 변경 여부)을 재검증(불일치 없음). 관련 Feature PRD 7건 및 Project PRD를 확인해 기능적 의존성(로그인 필요 여부, Add to Cart 모달 공유 관계 등)을 근거로 Phase 1~7 순서를 판단해 초안 작성. 사용자 검토 대기 중. | 초안 |
 | 2026-08-27 | 사용자가 8절에 기록된 판단 필요 사항 두 가지(1. signup-delete-account를 top-navigation보다 먼저 배치, 2. cart를 product-detail보다 먼저 배치)에 대해 "1,2번 승인"으로 동의. 이후 Roadmap 전체에 대한 최종 승인 여부를 별도로 재확인한 결과 사용자가 "네, 승인합니다"라고 명확한 최종 승인 의사를 밝힘. | 승인완료 |
 | 2026-08-29 | 사용자 재승인에 따른 부분 갱신. Phase 1 Task 2(LoginPage 구현) 완료 후 automation-developer-agent가 보고한 리스크(`click_new_user_signup()`이 클릭 핸들러 없는 h2를 클릭하는 구조라 Phase 2에서 재작업이 필요할 수 있음)를 5절 Phase 2 항목과 8절 리스크 목록에 인수 사항으로 기록. Phase 순서/범위/Definition of Done 등 기존 내용은 변경하지 않음. | 승인완료 |
+| 2026-08-30 | 사용자 요청에 따른 진행 현황 갱신. 9절 "진행 현황" 신규 추가 — Phase 0/1 완료(각각 커밋 `790ff26`/`ae6ba0c`, Phase 1은 GitHub `origin/master` push 완료 및 코드 리뷰 반영 포함)와 Phase 2~7 착수 전 상태를 기록. Phase Final(CI/CD)은 사용자 지시("모든 코드가 완성된 이후 진행")에 따라 보류로 명시. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
