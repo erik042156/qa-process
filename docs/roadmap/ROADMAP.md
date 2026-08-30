@@ -352,8 +352,8 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | Phase 0 | 공통 기반 구축 | 완료 | 2026-08-27, 커밋 `790ff26` |
 | Phase 1 | login-logout | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료, 커밋 `ae6ba0c`, `origin/master`(https://github.com/erik042156/qa-process) push 완료 |
 | Phase 2 | signup-delete-account | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 4건 수정, 재검증 과정에서 발견한 자체 회귀 1건도 재수정), 커밋 `a4f0825`, `origin/master` push 완료. 구현 중 실제 사이트 동작이 TC-006 승인 내용과 달라(Continue 클릭 시 자동 로그인됨) 사용자 확인 후 TC/PRD 문서 갱신. Production 사이트의 제3자 광고 오버레이 방해 문제를 발견해 BasePage 방어 로직 추가 및 AUTOMATION_GUIDE 7.1절 신규 문서화(일부 극단적 클릭 차단 사례는 알려진 한계로 잔존, conftest.py 광고 도메인 차단은 사용자 결정으로 보류) |
-| Phase 3 | top-navigation | 착수 전 | 다음 착수 대상 |
-| Phase 4 | product-search | 착수 전 | |
+| Phase 3 | top-navigation | 완료 | Approved TC 6건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 10건 중 correctness/견고성 4건 수정 — click_and_retry_if_vignette() 경쟁 조건 수정, 광고 방어 누락 3곳 보강, Locator 스코핑 일관성 정리, 미사용 죽은 코드 3개 제거), 커밋 `ece59d7`, `origin/master` push 완료. ProductsPage/CartPage 신규 구현 과정에서 페이지마다 로고/모달/브레드크럼으로 인한 중복 href를 실측으로 발견해 개별 대응. TC-006은 원본 TC의 외부 정보 의존(재사용 계정의 최초 가입 Name) 대신 Phase 2 회원가입 플로우 재사용으로 자기완결적으로 재설계. Phase 1+2+3 결합 회귀 28건 중 코드 자체의 진짜 실패는 0건이며, 제3자 광고발 브라우저 세션 크래시가 이례적으로 높은 빈도로 관측되어 사용자 확인 후 현재 코드로 완료 처리(AUTOMATION_GUIDE 7.1절 알려진 한계) |
+| Phase 4 | product-search | 착수 전 | 다음 착수 대상 |
 | Phase 5 | cart | 착수 전 | |
 | Phase 6 | product-detail | 착수 전 | |
 | Phase 7 | page-ui | 착수 전 | |
@@ -368,3 +368,4 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | 2026-08-29 | 사용자 재승인에 따른 부분 갱신. Phase 1 Task 2(LoginPage 구현) 완료 후 automation-developer-agent가 보고한 리스크(`click_new_user_signup()`이 클릭 핸들러 없는 h2를 클릭하는 구조라 Phase 2에서 재작업이 필요할 수 있음)를 5절 Phase 2 항목과 8절 리스크 목록에 인수 사항으로 기록. Phase 순서/범위/Definition of Done 등 기존 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-30 | 사용자 요청에 따른 진행 현황 갱신. 9절 "진행 현황" 신규 추가 — Phase 0/1 완료(각각 커밋 `790ff26`/`ae6ba0c`, Phase 1은 GitHub `origin/master` push 완료 및 코드 리뷰 반영 포함)와 Phase 2~7 착수 전 상태를 기록. Phase Final(CI/CD)은 사용자 지시("모든 코드가 완성된 이후 진행")에 따라 보류로 명시. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-30 | 사용자 요청에 따른 진행 현황 갱신. Phase 2(signup-delete-account) 완료로 표시 — Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영, 커밋 `a4f0825` 및 `origin/master` push 완료. 구현 중 발견한 두 가지 특이사항(TC-006 실제 사이트 동작이 승인 내용과 달라 사용자 확인 후 TC/PRD 문서 갱신, Production 사이트 제3자 광고 오버레이 방해로 BasePage 방어 로직 추가 및 AUTOMATION_GUIDE 7.1절 신규 문서화)을 비고에 기록. Phase 3(top-navigation)을 다음 착수 대상으로 갱신. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
+| 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 3(top-navigation) 완료로 표시 — Approved TC 6건 전건 pytest PASSED, 코드 리뷰 반영(finding 10건 중 4건 수정: 경쟁 조건, 광고 방어 누락 3곳, Locator 스코핑 일관성, 미사용 코드 제거), 커밋 `ece59d7` 및 `origin/master` push 완료. 구현 중 발견한 특이사항(페이지별 중복 href 실측 대응, TC-006 자기완결적 재설계, 제3자 광고발 브라우저 크래시 빈도 상승을 사용자에게 보고 후 현재 코드로 완료 처리 승인받음)을 비고에 기록. Phase 4(product-search)를 다음 착수 대상으로 갱신. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
