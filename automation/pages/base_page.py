@@ -160,15 +160,30 @@ class BasePage:
         회귀가 발생한 전례가 있다). 이 메서드로 두 Page Object의 중복 코드를 통합해
         AUTOMATION_GUIDE 19절("2회 이상 반복되는 코드는 공통 메서드로 분리") 원칙을
         따른다. 무한 재시도가 아니라 최대 1회만 재클릭한다.
+
+        [2026-08-31 코드 리뷰 반영] 최초 구현은 `click()` 직후 곧바로
+        `self.driver.current_url`을 읽어 판단했는데, 이는 `wait_for_url_to_be()`/
+        `wait_for_url_contains()`의 독스트링이 이미 경고하는 "클릭이 트리거한
+        리다이렉트가 아직 완료되지 않은 상태를 읽을 수 있음" 문제에 이 메서드
+        자신도 노출되어 있었다(리다이렉트가 이 판단 시점 이후에 `#google_vignette`로
+        정착하면 재시도가 발동하지 않아 광고 개입을 놓칠 수 있음). `WebDriverWait`으로
+        짧게(`AD_OVERLAY_DISMISS_TIMEOUT`) `google_vignette`가 URL에 나타나는지
+        기다려 판단하도록 수정했다 — 나타나지 않으면(대부분의 경우) `TimeoutException`을
+        정상 경로로 간주하고 그대로 반환한다.
         """
         self.click(locator, timeout)
-        if "google_vignette" in self.driver.current_url:
-            self.logger.warning(
-                "클릭 후 Google Vignette 광고로 추정되는 오버레이가 감지되어 재클릭 "
-                "시도: %s",
-                self.driver.current_url,
+        try:
+            WebDriverWait(self.driver, self.AD_OVERLAY_DISMISS_TIMEOUT).until(
+                EC.url_contains("google_vignette")
             )
-            self.click(locator, timeout)
+        except TimeoutException:
+            return
+        self.logger.warning(
+            "클릭 후 Google Vignette 광고로 추정되는 오버레이가 감지되어 재클릭 "
+            "시도: %s",
+            self.driver.current_url,
+        )
+        self.click(locator, timeout)
 
     def type_text(self, locator: tuple, text: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """요소가 보일 때까지 대기한 뒤 기존 값을 지우고 텍스트를 입력한다.
