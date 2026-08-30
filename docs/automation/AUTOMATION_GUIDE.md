@@ -4,7 +4,7 @@
 참고: refer_CLAUDE.md(타 프로젝트 개발 규칙) 구조를 참고하되, 규칙 내용은 본 프로젝트에서
       사용자와 별도로 확정한 결정 사항을 따름
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-29
+최근 변경일: 2026-08-30
 승인일: 2026-08-27
 ---
 
@@ -295,6 +295,35 @@ Locator를 하드코딩하지 않습니다.
 - 반복되는 Wait 로직은 `BasePage`의 공통 메서드로 래핑합니다(예: `wait_and_click`,
   `wait_and_get_text` 등 — 실제 메서드명은 구현 시 확정).
 
+### 7.1 광고 오버레이(Ad Overlay) 처리 (2026-08-30 추가)
+
+`automationexercise.com`은 Production 단일 환경이며, 사이트 자체가 아닌 제3자(Google
+Ads) 네트워크가 페이지 진입 시 **무작위로** 전면 광고 오버레이(Google Vignette 등,
+화면 전체를 덮고 "Close" 컨트롤이 있는 모달)를 주입하는 것이 사용자 제보 스크린샷
+(2026-08-30)으로 확인되었습니다. 이 광고 콘텐츠 자체는 Project PRD "8. 기타
+제약사항" 및 각 TC 문서 공통 Preconditions에 따라 **검증 대상이 아니지만**, 실제
+클릭/입력을 가로막아 자동화 테스트를 실패시킬 수 있습니다.
+
+- **처리 위치**: `BasePage`가 `_dismiss_ad_overlay_if_present()` 공통 메서드를
+  제공하며, `click()`과 `type_text()` 시작 시점에 자동으로 호출됩니다. 오버레이가
+  떠 있으면 "Close" 컨트롤을 클릭해 닫고, 없으면(대부분의 경우) 짧은 타임아웃
+  (1.5초) 후 조용히 통과합니다.
+- **모든 Page Object가 자동으로 적용받음**: `BasePage`를 상속하기만 하면 별도 구현
+  없이 이 방어 로직이 적용됩니다. 새로운 Page Object를 작성할 때 광고 처리 로직을
+  **개별적으로 추가하지 마십시오** — 이미 `BasePage.click()`/`type_text()`를
+  사용하는 것만으로 충분합니다.
+- **Locator 예외 사항**: 광고 DOM은 제3자가 매번 다르게 주입해 Playwright MCP로
+  사전에 결정적으로 재현·검증할 수 없으므로, 5절의 "실제 페이지 탐색 절차"는 이
+  Locator(`BasePage.AD_OVERLAY_CLOSE_BUTTON`)에는 예외적으로 적용하지 않으며, 화면에
+  노출되는 "Close" 텍스트 기반의 최선(best-effort) 탐색을 사용합니다. 광고 마크업이
+  바뀌어 이 Locator가 더 이상 동작하지 않게 되면 `BasePage` 한 곳만 수정하면
+  됩니다(모든 Page Object에 공통 적용).
+- **성능 트레이드오프**: 오버레이가 없는 일반적인 경우에도 매 `click()`/`type_text()`
+  호출마다 최대 1.5초의 짧은 대기가 추가됩니다(사용자 승인 완료, 안정성을 우선).
+  `get_text()`/`is_element_visible()`/`find_element()`처럼 호출 빈도가 높은 조회
+  전용 메서드에는 적용하지 않습니다(Selenium이 occlusion을 검사하지 않아 실질적
+  차단 위험이 낮고, 성능 비용 대비 효익이 낮기 때문).
+
 ---
 
 ## 8. Assertion 원칙
@@ -539,3 +568,11 @@ def login_page(driver):
  `/login` 페이지를 실측해 `data-qa` 속성이 실제로 존재함을 확인(로그인/회원가입 두 폼에서\
  `name="email"`이 중복되어 `name` 단독으로는 고유 식별 불가함도 함께 확인)한 사실을 반영해\
  6.1절 Locator 우선순위에 `data-qa`(2순위, id 다음 name 이전)를 추가(사용자 승인 완료). | 승인완료 |
+| 2026-08-30 | 사용자가 automationexercise.com에서 간헐적으로 노출되는 광고 오버레이\
+ 스크린샷을 제보하고, 모든 페이지 진입 시 이를 감지해 "Close"로 닫은 뒤 본래 동작이\
+ 시작되도록 처리하고 앞으로의 모든 서브에이전트 코드 작업에 반영해달라고 요청함(사용자\
+ 승인). 이에 따라 "7.1 광고 오버레이(Ad Overlay) 처리" 절 신규 추가 —\
+ `BasePage._dismiss_ad_overlay_if_present()`를 `click()`/`type_text()` 시작 시점에\
+ 호출하도록 구현했고(automation/pages/base_page.py), Phase 1(test_login.py 11건)/\
+ Phase 2(test_signup.py 6건) 전체 재실행으로 회귀 없음을 확인했다. 새 Page Object는\
+ `BasePage` 상속만으로 자동 적용되므로 개별 구현이 불필요함을 명시. | 승인완료 |

@@ -83,3 +83,7 @@ class HomePage(BasePage):
     def click_logout(self) -> None:
         """"Logout" 메뉴를 클릭한다."""
         self.click(self.LOGOUT_LINK)
+
+    def click_delete_account(self) -> None:
+        """"Delete Account" 메뉴를 클릭한다."""
+        self.click(self.DELETE_ACCOUNT_LINK)

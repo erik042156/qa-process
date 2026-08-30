@@ -3,7 +3,7 @@
 상태: 승인완료
 관련 Project PRD: project-prd.md
 최초 작성일: 2026-08-20
-최근 변경일: 2026-08-20
+최근 변경일: 2026-08-30
 승인일: 2026-08-20
 ---
 
@@ -32,7 +32,7 @@ automationexercise.com에서 신규 사용자가 계정을 생성(회원가입)�
 3. Password 등 필수 항목과 필요 시 선택 항목을 입력하고 "Create Account" 버튼을 클릭한다.
 4. "ACCOUNT CREATED!" 완료 페이지(`/account_created`)로 이동한다. 이 페이지의 상단 네비게이션은
    로그아웃 상태 메뉴로 노출된다.
-5. "Continue" 버튼을 클릭하면 Home으로 랜딩되며 로그아웃 상태가 유지된다.
+5. "Continue" 버튼을 클릭하면 방금 생성한 계정으로 자동 로그인되어 로그인 상태로 Home에 랜딩된다.
 
 **계정삭제 시나리오**
 
@@ -64,8 +64,9 @@ automationexercise.com에서 신규 사용자가 계정을 생성(회원가입)�
   (`/account_created`)로 이동하며, "Congratulations! Your new account has been successfully
   created!" 등의 안내 문구와 "Continue" 버튼이 노출된다. 이 페이지의 상단 네비게이션은 로그아웃
   상태 메뉴로 표시된다(자동 로그인되지 않음).
-- **REQ-SIGNUP-DELETE-ACCOUNT-007**: "ACCOUNT CREATED!" 페이지에서 "Continue" 클릭 시 Home으로
-  랜딩되며 로그아웃 상태가 유지된다.
+- **REQ-SIGNUP-DELETE-ACCOUNT-007**: "ACCOUNT CREATED!" 페이지에서 "Continue" 클릭 시, 방금
+  생성한 계정으로 자동 로그인되어 로그인 상태로 Home으로 랜딩된다(상단 네비게이션이 "Logged in
+  as {Name}" 등 로그인 상태 메뉴로 전환됨).
 - **REQ-SIGNUP-DELETE-ACCOUNT-008**: 이미 가입된 이메일로 재가입 시도 시, 페이지 전환 없이
   로그인/가입 폼 화면이 그대로 유지되고 Email 입력란 하단에 "Email Address already exist!"
   에러 메시지가 노출된다.
@@ -157,3 +158,4 @@ automationexercise.com에서 신규 사용자가 계정을 생성(회원가입)�
 |---|---|---|
 | 2026-08-20 | 최초 작성 (Draft) | 초안 |
 | 2026-08-20 | 사용자 최종 승인 | 승인완료 |
+| 2026-08-30 | Phase 2 Task 8(회원가입 완료 테스트) 자동화 테스트 실행 중 발견된 실제 사이트 동작과의 불일치를 사용자 확인 후 반영. 3절 회원가입 시나리오 5단계와 REQ-SIGNUP-DELETE-ACCOUNT-007을 "Continue 클릭 시 로그아웃 상태 유지"에서 "Continue 클릭 시 방금 생성한 계정으로 자동 로그인되어 로그인 상태로 Home 랜딩"으로 수정. Selenium 기반 pytest 실행으로 3회 독립 재현(스크린샷 확인)해 실제 동작을 검증했으며, 사용자가 문서 갱신을 승인함. | 승인완료 |
