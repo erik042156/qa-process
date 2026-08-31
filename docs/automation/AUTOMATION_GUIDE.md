@@ -504,16 +504,37 @@ def login_page(driver):
 
 ## 20. 테스트 실행 및 검증
 
-- 코드 작성 후에는 **반드시 관련 테스트를 실행**해 동작을 검증합니다. 실행 없이 "완료"로
-  간주하지 않습니다(CLAUDE.md 13절과 동일).
-- 실행 예시:
-  ```bash
-  # 특정 파일 실행
-  pytest automation/tests/test_login.py
+### 20.1 테스트 실행 범위와 시점 (2026-08-31 명확화)
 
-  # 전체 실행 + HTML/JUnit 리포트 생성
-  pytest automation/tests/ --html=automation/reports/report.html --junitxml=automation/reports/results.xml
-  ```
+개발 Roadmap의 Phase 진행 과정에서 테스트를 "언제, 어느 범위까지" 실행할지를 3단계로
+구분합니다. 범위를 넓게 잡을수록(특히 전체 통합테스트) 실행 시간이 길고 제3자 광고 등
+Test Environment 요인에 따른 불안정성(7.1절, 22절)에 노출될 여지도 커지므로, 아래처럼
+시점을 명확히 구분해 불필요한 반복 실행을 피합니다.
+
+1. **Phase 내부, 코드 작성 단위(Task)마다**: Page Object 메서드나 테스트 함수를 새로
+   작성/수정할 때마다, 그 범위에 해당하는 테스트를 즉시 실행해 동작을 검증합니다. 실행 없이
+   "완료"로 간주하지 않습니다(CLAUDE.md 13절과 동일).
+   ```bash
+   # 예: 이번에 작성/수정한 테스트 함수 하나만 pytest 노드 ID로 지정해 실행
+   # (`-k`는 테스트 함수명을 대상으로 매칭하므로, TC ID가 아니라 실제 함수명을 지정한다.
+   # TC ID와 함수명의 대응 관계는 각 테스트 함수의 docstring에 기록되어 있다.)
+   pytest automation/tests/test_cart.py::test_repeated_add_to_cart_accumulates_quantity_on_list_page
+   ```
+2. **Phase 코드 작성 완료 시**: 해당 Phase의 Approved TC 전체를 대상으로 pytest를
+   실행해 PASSED/FAILED/ERROR를 확인합니다. 실행 범위는 **해당 Phase의 테스트 파일로
+   한정**하며, 다른 Phase까지 포함한 전체 통합테스트는 이 시점에 진행하지 않습니다.
+   ```bash
+   # 예: Phase 5(cart) 완료 시 — cart Phase 범위로만 한정
+   pytest automation/tests/test_cart.py --html=automation/reports/report_phase5.html --junitxml=automation/reports/results_phase5.xml
+   ```
+3. **전체 통합테스트(Full Regression)**: 개발 Roadmap상 모든 Feature Phase의 코드
+   작성이 완료된 이후, CI/CD 연동 Phase(Phase Final) 착수 직전 시점에 **1회만** 진행합니다.
+   그 이전 개별 Phase 완료 시점마다 반복적으로 전체 통합테스트를 수행하지 않습니다.
+   ```bash
+   # 예: 모든 Feature Phase 완료 후, CI/CD Phase 착수 직전 1회
+   pytest automation/tests/ --html=automation/reports/report_full.html --junitxml=automation/reports/results_full.xml
+   ```
+
 - 테스트 실패 시 원인을 CLAUDE.md 13절의 4가지 범주(Automation Code / Test Data / Test
   Environment / 실제 Product 문제) 중 하나로 구분하려고 시도하며, 원인이 불명확하면 추측으로
   결론 내리지 않고 사용자에게 보고합니다.
@@ -635,3 +656,15 @@ Wait 처리와 직접 관련되어 있어 원래 자리(7.1절)에 그대로 둡
  `BasePage` 상속만으로 자동 적용되므로 개별 구현이 불필요함을 명시. | 승인완료 |
 | 2026-08-31 | Phase 4 회귀 확인 중 발견된 TC-LOGIN-LOGOUT-015(`/logout` 세션 처리 결함)\
  재현 사례를 사용자 승인에 따라 알려진 Production 사이트 결함으로 신규 기록(22절 신설). | 승인완료 |
+| 2026-08-31 | 사용자 요청에 따라 20절에 "20.1 테스트 실행 범위와 시점" 신설. 테스트 실행을\
+ (1) Phase 내부 코드 작성 단위(Task)마다 관련 테스트 실행, (2) Phase 코드 작성 완료 시\
+ 해당 Phase 범위로 한정한 테스트 실행(다른 Phase를 포함한 전체 통합테스트는 이 시점에\
+ 진행하지 않음), (3) 전체 통합테스트는 개발 Roadmap상 모든 Feature Phase 완료 후 CI/CD\
+ Phase(Phase Final) 착수 직전에 1회만 진행 — 3단계로 명확히 구분(사용자 승인). | 승인완료 |
+| 2026-08-31 | Phase 5(cart) 코드 리뷰에서 발견된 사항 반영. 20.1절 1번(Task 단위 실행)\
+ 예시 명령어가 `pytest -k "TC_CART_005"` 형태였는데, `-k`는 테스트 함수명을 대상으로\
+ 매칭하고 실제 테스트 함수명은 TC ID가 아닌 서술형 영문(예:\
+ `test_repeated_add_to_cart_accumulates_quantity_on_list_page`)이라 해당 명령어로는\
+ 테스트가 0건 수집되는 결함을 수정 — pytest 노드 ID(`파일::함수명`) 형태의 실제 동작하는\
+ 예시로 교체하고, TC ID와 함수명의 대응 관계는 각 테스트 함수 docstring에서 확인한다는\
+ 설명을 추가. | 승인완료 |

@@ -6,7 +6,7 @@
 관련 Automation Candidate 문서: [tc/automation-candidates/login-logout.md, tc/automation-candidates/signup-delete-account.md, tc/automation-candidates/top-navigation.md, tc/automation-candidates/product-search.md, tc/automation-candidates/cart.md, tc/automation-candidates/product-detail.md, tc/automation-candidates/page-ui.md]
 관련 Automation Guide: docs/automation/AUTOMATION_GUIDE.md
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-31 (진행 현황 갱신 - Phase 4 push 완료 반영)
+최근 변경일: 2026-08-31 (진행 현황 갱신 - Phase 5 완료 반영)
 승인일: 2026-08-27
 ---
 
@@ -289,6 +289,11 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 - 근거: AUTOMATION_GUIDE 16절, CLAUDE.md 15/16절.
 - 이 Phase는 Phase 1~7에서 생성된 자동화 테스트 스위트가 최소 1회 이상 로컬에서
   PASSED/FAILED로 실행 검증된 이후 착수한다.
+- **[2026-08-31 명확화]** 이 검증은 AUTOMATION_GUIDE 20.1절이 정의하는 **전체
+  통합테스트(Full Regression)**에 해당하며, Phase 1~7 전체를 통틀어 이 시점에 **1회만**
+  수행한다. Phase 1~7 각각의 완료 시점(7절 Definition of Done)에는 해당 Phase 범위로
+  한정한 테스트만 실행하며, 개별 Phase가 완료될 때마다 다른 Phase를 포함한 전체
+  통합테스트를 반복 수행하지 않는다.
 
 ## 6. Feature별 상세 매핑표
 
@@ -306,8 +311,11 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 
 각 Feature Phase는 다음을 모두 충족해야 완료로 간주한다.
 
-- AUTOMATION_GUIDE 20절 기준으로 해당 Phase의 pytest를 실제로 실행해 PASSED/FAILED/
-  ERROR 결과를 확인했는가 (실행 없이 "완료"로 간주하지 않음).
+- AUTOMATION_GUIDE 20.1절 기준으로, Phase 내부에서는 코드 작성 단위(Task)마다 관련
+  테스트를 실행했고, Phase 코드 작성 완료 시점에는 **해당 Phase 범위로 한정한** pytest를
+  실제로 실행해 PASSED/FAILED/ERROR 결과를 확인했는가 (실행 없이 "완료"로 간주하지 않음).
+  다른 Phase를 포함한 전체 통합테스트는 각 Phase 완료 시점의 Definition of Done에
+  포함되지 않으며, Phase Final 착수 직전에 1회만 수행한다(5절 Phase Final 참고).
 - AUTOMATION_GUIDE 21절 Self Review 체크리스트(Explicit Wait 사용, Full XPath 미사용,
   Locator 상수화, Page Layer에 Assertion 없음, `BasePage` 상속, 테스트 독립성, 민감정보
   미하드코딩, `logging` 사용, 구체적 예외 처리, Naming Convention, 4칸 들여쓰기, 실패 시
@@ -377,8 +385,8 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | Phase 2 | signup-delete-account | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 4건 수정, 재검증 과정에서 발견한 자체 회귀 1건도 재수정), 커밋 `a4f0825`, `origin/master` push 완료. 구현 중 실제 사이트 동작이 TC-006 승인 내용과 달라(Continue 클릭 시 자동 로그인됨) 사용자 확인 후 TC/PRD 문서 갱신. Production 사이트의 제3자 광고 오버레이 방해 문제를 발견해 BasePage 방어 로직 추가 및 AUTOMATION_GUIDE 7.1절 신규 문서화(일부 극단적 클릭 차단 사례는 알려진 한계로 잔존, conftest.py 광고 도메인 차단은 사용자 결정으로 보류) |
 | Phase 3 | top-navigation | 완료 | Approved TC 6건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 10건 중 correctness/견고성 4건 수정 — click_and_retry_if_vignette() 경쟁 조건 수정, 광고 방어 누락 3곳 보강, Locator 스코핑 일관성 정리, 미사용 죽은 코드 3개 제거), 커밋 `ece59d7`, `origin/master` push 완료. ProductsPage/CartPage 신규 구현 과정에서 페이지마다 로고/모달/브레드크럼으로 인한 중복 href를 실측으로 발견해 개별 대응. TC-006은 원본 TC의 외부 정보 의존(재사용 계정의 최초 가입 Name) 대신 Phase 2 회원가입 플로우 재사용으로 자기완결적으로 재설계. Phase 1+2+3 결합 회귀 28건 중 코드 자체의 진짜 실패는 0건이며, 제3자 광고발 브라우저 세션 크래시가 이례적으로 높은 빈도로 관측되어 사용자 확인 후 현재 코드로 완료 처리(AUTOMATION_GUIDE 7.1절 알려진 한계) |
 | Phase 4 | product-search | 완료 | Approved TC 8건(001,002,003,004,005,006,008,010) 전건 pytest PASSED(TC-006은 브랜드명 4개 keyword parametrize, 총 실행 케이스 11개). **[2026-08-31 구현 중 PRD/TC 2차 재승인 발생]** 자동화 구현 중 실제 사이트 검색 매칭 로직이 승인된 PRD/TC와 달라 PRD(REQ-PRODUCT-SEARCH-001/005/008)를 2차례 재정정하고(① 하위 카테고리명 매칭 추가, ② 브랜드명은 완전 일치도 항상 제외로 명확화·상위 카테고리명은 4.2 미확인 항목으로 이관) TC-001 Expected Result 수정, TC-006을 브랜드명 4건만 검증하도록 재작성, TC-010(하위 카테고리명 매칭 회귀 테스트) 신규 추가 — 모두 사용자 직접 승인, Candidate 문서도 재확정 완료(Score 재산정 포함). TC-005는 assertion 방향이 반대로 작성된 코드 버그도 발견해 수정(승인 불필요, 코드 전용). Phase 1~4 전체 회귀(39건) 확인 중 Phase 4와 무관한 Phase 1 회귀 1건(TC-LOGIN-LOGOUT-015, `/logout` 직접 접근 시 Home으로 랜딩)을 발견해 AUTOMATION_GUIDE 22절에 알려진 Production 사이트 결함으로 문서화. 구현 커밋 `a457ce2` 완료 후 `/code-review`로 코드 리뷰를 실행해 finding 4건을 발견 — 경쟁 조건(URL 변경 대기 직후 상품 그리드 렌더링을 기다리지 않고 카드를 조회해 flaky 실패 가능성)과 동일 셀렉터 3회 중복 조회 2건은 `_wait_for_results_rendered()` 헬퍼 추가로 수정하고 재실행으로 회귀 없음(11건 PASSED) 확인, 커밋 `a81e9d3`. 나머지 2건(TC-001의 배제(exclusion) 조건 미검증, Enter 키 테스트의 비동기 반응 미대기)은 테스트 docstring에 이미 근거가 명시된 의도적 설계 결정으로 판단해 사용자 확인 후 알려진 제약사항으로 남기고 코드는 변경하지 않음. `origin/master` push 완료 확인(커밋 `a457ce2`, `a81e9d3`, `23bb387` 포함 `0f3fe24`까지 로컬/원격 일치) |
-| Phase 5 | cart | 착수 전 | Phase 4 push 완료 확인됨. 다음 착수 대상 |
-| Phase 6 | product-detail | 착수 전 | |
+| Phase 5 | cart | 완료 | Approved TC 13건(001,002,003,004,005,006,008,009,010,011,014,015,016) 전건 pytest PASSED. CartPage 확장(목록/삭제/빈카트/Proceed To Checkout), AddToCartModal·CheckoutPage 신규(Phase 6 재사용 예정 공유 컴포넌트), HomePage/ProductsPage Add to cart 확장. `/code-review` 실행 결과 finding 7건 중 5건 수정(TC-011/014/015/016 `finally` 블록에서 cleanup 예외가 원래 assertion 실패를 가리던 문제, `base_page.py` click()/click_element() 클릭 재시도 로직 중복, 상품명 공백 정규화 로직 3중 중복(신규 `utils/text.py`로 통합), 장바구니 행 미발견 시 에러 로그용 DOM 재조회 1건), 2건은 검토 후 변경 보류(HomePage/ProductsPage 카드 Locator 중복 — Phase 1~3부터 이어진 "화면 단위 1 Page 클래스" 기존 설계와 일치해 유지, 리뷰어의 docstring 오독 1건은 실제로는 이미 정확히 기술되어 있어 수정 불필요). 수정 후 Phase 5 재실행 13/13 PASSED, `base_page.py` 공유 로직 변경 영향 확인을 위해 Phase 3(top-navigation) 6/6 PASSED spot-check도 재확인. 구현 커밋 `f3b7c6a`(코드 리뷰 반영 포함), push는 진행 중 |
+| Phase 6 | product-detail | 착수 전 | Phase 5 push 완료 후 착수 예정 |
 | Phase 7 | page-ui | 착수 전 | |
 | Phase Final | CI/CD 및 Slack 알림 연동 | 보류(사용자 결정) | "CI 워크플로우 작성은 모든 코드가 완성된 이후 진행"(2026-08-30 사용자 지시) — Feature Phase 1~7이 모두 완료된 뒤 착수 |
 
@@ -396,3 +404,5 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 4(product-search) Approved TC 8건 전건 pytest PASSED로 갱신(TC-006은 브랜드명 4개 keyword parametrize). 구현 중 REQ-PRODUCT-SEARCH-005가 한 차례 더 재정정되어(브랜드명은 완전 일치도 항상 제외로 명확화, 상위 카테고리명 매칭 여부는 4.2 미확인 항목으로 이관) TC-006이 브랜드명 4건만 검증하도록 재작성되고 Candidate 문서도 재확정된 경위를 비고에 기록. TC-005의 assertion 방향 오류(배제↔포함) 코드 버그 수정 사실과, Phase 1~4 전체 회귀 확인 중 발견된 Phase 4와 무관한 Phase 1 회귀(TC-LOGIN-LOGOUT-015, 원인 조사 중)도 함께 기록. 코드 리뷰·Git Commit/Push는 아직 진행 전이라 Phase 4 상태를 "완료"가 아닌 "pytest 통과, 코드 리뷰·커밋 대기"로 정확히 표기. Phase 5(cart)는 Phase 4 코드 리뷰/커밋 완료 후 착수 예정으로 비고 추가. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 4(product-search) 구현 커밋(`a457ce2`) 이후 `/code-review`로 코드 리뷰를 실행해 finding 4건을 발견한 경위를 비고에 기록 — 경쟁 조건(URL 변경 대기 직후 상품 그리드 렌더링을 기다리지 않고 카드를 조회해 flaky 실패 가능성)과 동일 셀렉터 3회 중복 조회 2건은 `_wait_for_results_rendered()` 헬퍼로 수정하고 재실행으로 회귀 없음(11건 PASSED) 확인 후 커밋(`a81e9d3`), 나머지 2건(TC-001 배제 조건 미검증, Enter 키 테스트 비동기 반응 미대기)은 테스트 docstring에 이미 근거가 명시된 의도적 설계 결정으로 판단해 사용자 확인 후 알려진 제약사항으로 남김. Phase 4 상태를 "코드 리뷰 반영 완료, push 대기"로 갱신하고 Phase 5(cart) 착수 조건도 "Phase 4 push 완료 후"로 정정. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. `origin/master` 실제 상태를 재확인한 결과 로컬 `master`와 `origin/master`가 이미 완전히 일치함(커밋 `0f3fe24`까지 push 완료)을 확인해 Phase 4(product-search) 상태를 "코드 리뷰 반영 완료, push 대기"에서 "완료"로 갱신. Phase 5(cart)를 다음 착수 대상으로 표기. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
+| 2026-08-31 | 사용자 요청에 따라 AUTOMATION_GUIDE.md에 신설된 "20.1 테스트 실행 범위와 시점" 정책을 이 Roadmap에도 명시. 7절 Definition of Done을 "Phase 내부 Task 단위 테스트 실행 + Phase 완료 시 해당 Phase 범위로 한정한 pytest 실행"으로 구체화하고, 다른 Phase를 포함한 전체 통합테스트는 각 Phase Definition of Done에 포함되지 않음을 명시. 5절 Phase Final 항목에 "이 시점의 전체 스위트 실행이 AUTOMATION_GUIDE 20.1절의 전체 통합테스트(Full Regression)에 해당하며 Phase 1~7을 통틀어 1회만 수행한다"는 설명을 추가. Phase 순서/범위/기존 완료 Phase(0~4)의 진행 현황 기록은 변경하지 않음(소급 적용 없음, 향후 Phase 5 이후부터 적용). | 승인완료 |
+| 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 5(cart) 완료로 표시 — Approved TC 13건 전건 pytest PASSED, `/code-review` finding 7건 중 5건 수정(finally 블록 cleanup 예외로 인한 assertion 마스킹, 클릭 재시도 로직 중복, 상품명 정규화 3중 중복, 에러 로그용 DOM 재조회 중복)/2건 보류(기존 설계 원칙과 일치하는 카드 Locator 중복은 유지, 리뷰어 오독 1건은 수정 불필요로 판단) 경위를 비고에 기록. 구현 커밋 `f3b7c6a`. Phase 6(product-detail)을 다음 착수 대상으로 갱신. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
