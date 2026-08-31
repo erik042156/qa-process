@@ -219,13 +219,26 @@ class ProductsPage(BasePage):
         반환한다(Assertion 없음)."""
         return self.get_text(self.SECTION_TITLE)
 
+    def _wait_for_results_rendered(self) -> None:
+        """상품 목록(전체/검색 결과) 렌더링이 끝날 때까지 대기한다(Assertion 없음).
+
+        [2026-08-31 코드 리뷰 반영, finding 2] `SECTION_TITLE`은 전체 목록/검색 결과
+        0건/N건 모든 상태에서 항상 존재하는 요소라, 이 요소가 보일 때까지
+        `WebDriverWait`으로 대기하면(`get_text()` 재사용) URL 변경 직후 상품 카드
+        그리드가 아직 렌더링되지 않은 시점에 `get_product_card_count()`/
+        `get_product_names()`가 호출되어 카드를 놓치는 경쟁 조건을 방지할 수 있다.
+        """
+        self.get_text(self.SECTION_TITLE)
+
     def get_product_card_count(self) -> int:
         """노출된 상품 카드 개수를 반환한다(Assertion 없음).
 
         `driver.find_elements()`(복수형)는 대상 요소가 없으면 즉시 빈 리스트를
         반환하고 `WebDriverWait` 폴링을 하지 않으므로, 검색 결과가 0건인 페이지
-        (TC-PRODUCT-SEARCH-003)에서도 무한 대기 없이 안전하게 0을 반환한다.
+        (TC-PRODUCT-SEARCH-003)에서도 무한 대기 없이 안전하게 0을 반환한다. 다만
+        그 전에 `_wait_for_results_rendered()`로 목록 렌더링 자체는 먼저 대기한다.
         """
+        self._wait_for_results_rendered()
         count = len(self.driver.find_elements(*self.PRODUCT_CARDS))
         self.logger.debug("상품 카드 개수 조회 완료: %s", count)
         return count
@@ -233,15 +246,14 @@ class ProductsPage(BasePage):
     def get_product_names(self) -> list[str]:
         """카드별 상품명 텍스트 목록을 순서대로 반환한다(Assertion 없음).
 
-        `get_nav_menu_item_texts()`가 쓰는 패턴(먼저 `find_element()`로 첫 요소 로드를
-        대기한 뒤 `driver.find_elements()`로 복수 조회)을 재사용하되, 검색 결과 0건
-        페이지에서는 카드 자체가 DOM에 없어 `find_element()`(단수형)로 대기하면
-        Timeout이 발생하므로, 먼저 `get_product_card_count()`로 카드 존재 여부를 확인해
-        0건이면 즉시 빈 리스트를 반환한다.
+        [2026-08-31 코드 리뷰 반영, finding 2/4] `get_product_card_count()` 호출을
+        통한 간접 존재 확인 대신 `_wait_for_results_rendered()`로 직접 렌더링을
+        대기한 뒤 `driver.find_elements()`(복수형, 없으면 즉시 빈 리스트)로 한 번만
+        조회한다. 기존에는 동일한 `PRODUCT_CARDS` 셀렉터를 3회(카드 개수 확인용
+        `find_elements`, 대기용 `find_element`, 실제 조회용 `find_elements`)
+        중복 조회했는데, 이를 1회로 줄였다.
         """
-        if self.get_product_card_count() == 0:
-            return []
-        self.find_element(self.PRODUCT_CARDS)
+        self._wait_for_results_rendered()
         cards = self.driver.find_elements(*self.PRODUCT_CARDS)
         names = [card.find_element(*self.PRODUCT_CARD_NAME).text.strip() for card in cards]
         self.logger.debug("상품 카드 이름 목록 조회 완료: %s", names)
