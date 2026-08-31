@@ -119,32 +119,47 @@ class BasePage:
             element = WebDriverWait(self.driver, timeout).until(
                 EC.element_to_be_clickable(locator)
             )
-            try:
-                element.click()
-            except ElementClickInterceptedException:
-                self.logger.warning(
-                    "다른 요소(광고 등)에 가려 클릭이 가로채짐, 화면 중앙으로 스크롤 후 재시도: %s",
-                    locator,
-                )
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});", element
-                )
-                try:
-                    element.click()
-                except ElementClickInterceptedException:
-                    self.logger.warning(
-                        "스크롤 후에도 클릭이 가로채짐(전면 광고 오버레이로 추정), "
-                        "JavaScript로 클릭 이벤트 직접 디스패치: %s",
-                        locator,
-                    )
-                    self.driver.execute_script("arguments[0].click();", element)
-            self.logger.info("요소 클릭 완료: %s", locator)
         except TimeoutException:
             self.logger.error("요소가 클릭 가능한 상태가 되지 않음(Timeout): %s", locator)
             raise
         except NoSuchElementException:
             self.logger.error("요소를 찾을 수 없음: %s", locator)
             raise
+        self._click_with_intercept_retry(element, locator)
+        self.logger.info("요소 클릭 완료: %s", locator)
+
+    def _click_with_intercept_retry(self, element: WebElement, log_context) -> None:
+        """`ElementClickInterceptedException` 발생 시 스크롤 재시도 → JavaScript 클릭
+        디스패치 순서로 우회한다(`click()`/`click_element()` 공용 로직).
+
+        [2026-08-31 코드 리뷰 반영] 이 재시도 로직(스크롤 후 재클릭 → 그래도 가로채이면
+        JS 클릭 디스패치)이 `click()`과 `click_element()`에 거의 동일하게 두 번
+        구현되어 있었다. `click()`의 재시도 전략이 과거 두 차례(2026-08-30 Task 8,
+        Vignette 전면 광고 대응) 실제 pytest 실행으로 재현된 결함을 근거로 조정되어 온
+        이력이 있어(위 `click()` docstring 참고), 앞으로 이 전략이 또 바뀔 때 한쪽에만
+        반영되고 다른 쪽은 누락되는 회귀를 피하기 위해 이 헬퍼로 통합했다
+        (AUTOMATION_GUIDE 19절 "2회 이상 반복되는 코드는 공통 메서드로 분리").
+        `log_context`는 로그 메시지에 붙일 대상 식별자(Locator 튜플 또는 설명 문자열)다.
+        """
+        try:
+            element.click()
+        except ElementClickInterceptedException:
+            self.logger.warning(
+                "다른 요소(광고 등)에 가려 클릭이 가로채짐, 화면 중앙으로 스크롤 후 재시도: %s",
+                log_context,
+            )
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", element
+            )
+            try:
+                element.click()
+            except ElementClickInterceptedException:
+                self.logger.warning(
+                    "스크롤 후에도 클릭이 가로채짐(전면 광고 오버레이로 추정), "
+                    "JavaScript로 클릭 이벤트 직접 디스패치: %s",
+                    log_context,
+                )
+                self.driver.execute_script("arguments[0].click();", element)
 
     def click_and_retry_if_vignette(
         self, locator: tuple, timeout: int = DEFAULT_TIMEOUT
@@ -222,6 +237,63 @@ class BasePage:
             self.logger.error(
                 "요소가 상호작용 불가능한 상태(다른 요소에 가려짐 등): %s", locator
             )
+            raise
+
+    def click_element(self, element: WebElement, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """이미 조회해 둔 `WebElement` 인스턴스를 대상으로 클릭한다(2026-08-31 Phase 5 추가).
+
+        상품 카드 목록처럼 동일한 CSS Selector(예: 카드 내부 "Add to cart" 버튼)가 페이지에
+        여러 개 존재해 Locator 튜플 하나로는 특정 카드를 고유하게 지정할 수 없는 경우
+        (`ProductsPage._get_card_element(index)`처럼 이미 index로 특정 카드를 찾아둔 뒤 그
+        내부 요소를 클릭해야 하는 경우) 사용한다. `click(locator)`와 동일하게 광고 오버레이
+        방어(`_dismiss_ad_overlay_if_present()`)와 `ElementClickInterceptedException` 재시도
+        (스크롤 후 재클릭 → JavaScript 클릭 디스패치) 로직을 그대로 수행하되, Locator
+        재탐색 대신 이미 보유한 `WebElement`를 직접 사용한다.
+
+        `selenium.webdriver.support.expected_conditions.element_to_be_clickable()`는
+        Locator 튜플뿐 아니라 `WebElement` 인스턴스도 인자로 받아 그 요소가 보이고
+        활성화될 때까지 대기하는 기능을 표준으로 제공함을 Selenium 4.15.2(설치 버전)
+        소스코드로 확인했다(`mark: Union[WebElement, Tuple[str, str]]`).
+
+        [2026-08-31 코드 리뷰 반영] 클릭 가로채임 재시도 로직은 `click()`과 공유하는
+        `_click_with_intercept_retry()`를 사용한다(중복 구현 금지, 위 헬퍼 docstring
+        참고).
+        """
+        self._dismiss_ad_overlay_if_present()
+        try:
+            clickable_element = WebDriverWait(self.driver, timeout).until(
+                EC.element_to_be_clickable(element)
+            )
+        except TimeoutException:
+            self.logger.error("WebElement가 클릭 가능한 상태가 되지 않음(Timeout)")
+            raise
+        self._click_with_intercept_retry(clickable_element, "WebElement 직접 클릭")
+        self.logger.info("WebElement 직접 클릭 완료")
+
+    def get_css_value(
+        self, locator: tuple, property_name: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """요소가 보일 때까지 대기한 뒤 지정한 CSS 속성의 계산된 값을 조회해 반환한다
+        (Assertion 없음, 2026-08-31 Phase 5 추가).
+
+        담기 확인 모달/체크아웃 요구 모달처럼 TC Expected Result가 특정 UI 요소의 색상
+        (예: "초록색 Continue Shopping 버튼", "파란색 View Cart 링크")을 명시하는 경우 사용한다.
+        스크린샷 픽셀 비교 대신 `WebElement.value_of_css_property()`(Selenium 표준 API)로
+        브라우저가 실제로 계산한 CSS 값을 결정적으로 조회하며, `property_name`은
+        `"background-color"`, `"color"`처럼 CSS 속성명 그대로(하이픈 표기) 전달한다.
+        """
+        try:
+            element = WebDriverWait(self.driver, timeout).until(
+                EC.visibility_of_element_located(locator)
+            )
+            value = element.value_of_css_property(property_name)
+            self.logger.debug("CSS 속성 조회 완료: %s[%s] -> %s", locator, property_name, value)
+            return value
+        except TimeoutException:
+            self.logger.error("요소가 보이는 상태가 되지 않음(Timeout): %s", locator)
+            raise
+        except NoSuchElementException:
+            self.logger.error("요소를 찾을 수 없음: %s", locator)
             raise
 
     def get_text(self, locator: tuple, timeout: int = DEFAULT_TIMEOUT) -> str:

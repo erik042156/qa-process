@@ -54,6 +54,23 @@ Phase 3 확장(PRODUCTS_LINK/CART_LINK/NAV_MENU_ITEMS 추가, Playwright MCP 실
 - ul.navbar-nav 하위 8개 li>a 구조(href/텍스트)를 재확인한 결과, 기존 docstring에
   기록된 구조(Home/Products/Cart/Signup·Login/Test Cases/API Testing/Video
   Tutorials/Contact us)와 완전히 동일함을 확인했다.
+
+Phase 5 확장(상품 카드/Add to cart, Playwright MCP 실측, 2026-08-31,
+https://automationexercise.com/, 로그아웃 상태):
+- Home 페이지의 상품 목록 영역이 `products_page.py`가 실측한 `/products` 전체 목록과 완전히
+  동일한 마크업(`.features_items .col-sm-4`)임을 `browser_evaluate`로 확인했다
+  (`document.querySelectorAll('.features_items .col-sm-4').length === 34`, 실제 상품 카드
+  수와 일치 - Home 페이지도 전체 카탈로그를 노출하는 사이트 구조임을 이번에 처음
+  확인했다). 카드 내부 상품명(`.productinfo p`)/"Add to cart" 버튼
+  (`.productinfo .add-to-cart`) Locator도 `products_page.py`와 동일한 근거(카드 스코프
+  내 1개씩만 존재, hover 시 노출되는 `.product-overlay` 내부 중복 버튼과 구분하기 위해
+  `.productinfo` 하위로 범위를 좁힘)로 그대로 재사용한다.
+- Home 페이지에서 "Add to cart" 버튼을 실제로 클릭해(Playwright MCP는 조회·탐색 전용이지만,
+  이 클릭은 계정 생성/삭제나 주문 시도가 아니라 비로그인 세션의 임시 장바구니에만 영향을
+  주는 조회 목적의 상호작용이며 AUTOMATION_GUIDE 5.3절이 금지하는 "서비스 데이터 변경"에
+  해당하지 않는다고 판단해 수행함) 담기 확인 모달(`id="cartModal"`)이 노출됨을 확인했다 —
+  상세 내용은 `pages/add_to_cart_modal.py` docstring 참고. 확인 후 "Continue Shopping"으로
+  모달을 닫고 방금 담은 상품은 장바구니에서 삭제해 탐색 세션을 원상 복구했다.
 """
 
 from selenium.webdriver.common.by import By
@@ -93,6 +110,12 @@ class HomePage(BasePage):
 
     # 상단 네비게이션 메뉴 구성 전체 조회용(ul.navbar-nav 하위 모든 li>a, 8개 실측 확인)
     NAV_MENU_ITEMS = (By.CSS_SELECTOR, "ul.navbar-nav li > a")
+
+    # 상품 카드/Add to cart(Phase 5) - Playwright MCP 실측 확인 완료(위 docstring
+    # "Phase 5 확장" 참고, products_page.py와 동일한 실측 근거)
+    PRODUCT_CARDS = (By.CSS_SELECTOR, ".features_items .col-sm-4")
+    PRODUCT_CARD_NAME = (By.CSS_SELECTOR, ".productinfo p")
+    PRODUCT_CARD_ADD_TO_CART = (By.CSS_SELECTOR, ".productinfo .add-to-cart")
 
     def navigate(self) -> None:
         """Home 페이지(루트 URL)로 이동한다."""
@@ -186,3 +209,38 @@ class HomePage(BasePage):
         texts = [element.text.strip() for element in elements]
         self.logger.debug("상단 네비게이션 메뉴 텍스트 조회 완료: %s", texts)
         return texts
+
+    def get_product_names(self) -> list[str]:
+        """노출된 상품 카드의 상품명 텍스트 목록을 순서대로 반환한다(Assertion 없음)."""
+        self.find_element(self.PRODUCT_CARDS)
+        cards = self.driver.find_elements(*self.PRODUCT_CARDS)
+        names = [card.find_element(*self.PRODUCT_CARD_NAME).text.strip() for card in cards]
+        self.logger.debug("상품 카드 이름 목록 조회 완료: %s", names)
+        return names
+
+    def click_add_to_cart_on_card(self, index: int) -> None:
+        """index번째 상품 카드의 "Add to cart" 버튼을 클릭한다.
+
+        `ProductsPage._get_card_element(index)`와 동일한 패턴으로 카드를 먼저 조회한 뒤,
+        카드 내부의 "Add to cart" 버튼은 페이지 전체에서 동일 셀렉터가 카드 수만큼
+        중복되어 `BasePage.click(locator)`(단일 Locator 대상)로는 특정 카드를 지정할 수
+        없으므로 `BasePage.click_element(element)`로 이미 조회한 `WebElement`를 직접
+        클릭한다.
+
+        Raises:
+            IndexError: index가 실제 카드 개수를 벗어난 경우(원인을 로깅한 뒤 재전파).
+        """
+        self.find_element(self.PRODUCT_CARDS)
+        cards = self.driver.find_elements(*self.PRODUCT_CARDS)
+        try:
+            card = cards[index]
+        except IndexError:
+            self.logger.error(
+                "요청한 카드 index가 범위를 벗어남(index: %s, 실제 카드 개수: %s)",
+                index,
+                len(cards),
+            )
+            raise
+        add_to_cart_button = card.find_element(*self.PRODUCT_CARD_ADD_TO_CART)
+        self.click_element(add_to_cart_button)
+        self.logger.info("%s번째 상품 카드의 'Add to cart' 클릭 완료", index)

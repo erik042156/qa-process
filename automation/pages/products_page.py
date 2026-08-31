@@ -86,6 +86,22 @@ https://automationexercise.com/products?search=zzzzznonexistent) - Phase 4 Task 
   0개이고 섹션 제목 요소(`.features_items h2.title`)는 그대로 존재("Searched
   Products")하며, "No result"류의 별도 안내 문구는 `document.body.innerText`에
   없음을 확인했다(TC-PRODUCT-SEARCH-003 기대 결과와 일치).
+
+Phase 5 확장(Add to cart 클릭, Playwright MCP 실측, 2026-08-31,
+https://automationexercise.com/products, 로그아웃 상태):
+- 기존 `PRODUCT_CARD_ADD_TO_CART`(`.productinfo .add-to-cart`)를 그대로 재사용해 실제 클릭
+  동작을 확인했다. 카드 내부 버튼은 페이지 전체에서 카드 수만큼 중복 존재하는 셀렉터라
+  `BasePage.click(locator)`로는 특정 카드를 지정할 수 없어, `_get_card_element(index)`로
+  조회한 `WebElement`를 `BasePage.click_element(element)`로 직접 클릭하는 방식을
+  사용한다(`home_page.py`와 동일한 패턴). 클릭 시 담기 확인 모달(`id="cartModal"`)이
+  노출됨을 재확인했다(`pages/add_to_cart_modal.py` docstring 참고). 확인 후 방금 담은
+  상품은 장바구니에서 삭제해 탐색 세션을 원상 복구했다.
+- TC-CART-005 테스트 데이터("Sleeveless Dress", 단가 Rs.1000)를 실측한 결과, 실제 상품
+  카드 목록에 존재하는 상품명은 DOM 텍스트 그대로 `"Sleeveless  Dress"`(단어 사이에 공백이
+  2칸)이며 단가는 "Rs. 1000"으로 `docs/tc/cart.md` 승인된 예시값과 정확히 일치함을
+  확인했다(가격 불일치 없음, 상품명은 공백 개수만 다름 - `find_card_index_by_product_name()`이
+  비교 시 공백을 정규화해 처리한다). `.features_items .col-sm-4`에서 34개 카드 중 3번째
+  (index=2, `data-product-id="3"`)로 확인됐다.
 """
 
 from selenium.webdriver.common.by import By
@@ -94,6 +110,7 @@ from selenium.webdriver.remote.webelement import WebElement
 
 from config.settings import BASE_URL
 from pages.base_page import BasePage
+from utils.text import normalize_whitespace
 
 
 class ProductsPage(BasePage):
@@ -306,3 +323,39 @@ class ProductsPage(BasePage):
         card = self._get_card_element(index)
         elements = card.find_elements(*self.PRODUCT_CARD_VIEW_PRODUCT)
         return bool(elements) and elements[0].is_displayed()
+
+    def click_add_to_cart_on_card(self, index: int) -> None:
+        """index번째 상품 카드의 "Add to cart" 버튼을 클릭한다(Phase 5, 위 docstring 참고).
+
+        카드 내부 버튼은 페이지 전체에서 카드 수만큼 중복 존재하는 셀렉터라
+        `BasePage.click(locator)`로는 특정 카드를 지정할 수 없으므로,
+        `_get_card_element(index)`로 조회한 `WebElement`를
+        `BasePage.click_element(element)`로 직접 클릭한다.
+        """
+        card = self._get_card_element(index)
+        add_to_cart_button = card.find_element(*self.PRODUCT_CARD_ADD_TO_CART)
+        self.click_element(add_to_cart_button)
+        self.logger.info("%s번째 상품 카드의 'Add to cart' 클릭 완료", index)
+
+    def find_card_index_by_product_name(self, product_name: str) -> int:
+        """상품명(공백 정규화 후 비교)과 일치하는 첫 카드의 index를 찾아 반환한다
+        (Assertion 없음).
+
+        TC-CART-005처럼 특정 상품(예: "Sleeveless Dress")을 상품 카탈로그 내 위치와
+        무관하게 이름으로 찾아야 하는 시나리오에 사용한다. 실측 결과 일부 상품명의 DOM
+        텍스트에 연속 공백이 포함되어 있어(위 docstring 참고) 비교 전 공백을 정규화한다.
+
+        Raises:
+            ValueError: 일치하는 상품명을 가진 카드가 없는 경우(원인을 로깅한 뒤 재전파).
+        """
+        names = self.get_product_names()
+        target = normalize_whitespace(product_name)
+        for index, name in enumerate(names):
+            if normalize_whitespace(name) == target:
+                return index
+        self.logger.error(
+            "상품명과 일치하는 카드를 찾을 수 없음: %s (조회된 상품명 목록: %s)",
+            product_name,
+            names,
+        )
+        raise ValueError(f"상품명과 일치하는 카드를 찾을 수 없음: {product_name}")
