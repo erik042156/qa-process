@@ -4,7 +4,7 @@
 참고: refer_CLAUDE.md(타 프로젝트 개발 규칙) 구조를 참고하되, 규칙 내용은 본 프로젝트에서
       사용자와 별도로 확정한 결정 사항을 따름
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-30
+최근 변경일: 2026-08-31
 승인일: 2026-08-27
 ---
 
@@ -544,6 +544,63 @@ def login_page(driver):
 
 ---
 
+## 22. 알려진 Production 사이트 결함 (Known Site Defects)
+
+이 절은 자동화 코드/Locator/Assertion 자체는 정상 동작하지만, `automationexercise.com`
+Production 사이트 쪽 결함으로 인해 테스트가 실패(또는 실패할 수 있는)하는 사례를
+기록합니다. CLAUDE.md 13절 "실제 Product 문제" 범주로 분류된 사례가 대상입니다.
+
+이미 7.1절("광고 오버레이 처리")도 넓게 보면 Production 사이트 쪽 이슈에 대응하는
+선례이지만, 광고 오버레이는 자동화 코드가 **매번 방어 로직으로 우회 처리**하는 사례이고
+Wait 처리와 직접 관련되어 있어 원래 자리(7.1절)에 그대로 둡니다. 이 절에서는 중복
+서술하지 않고 7.1절을 참고하도록 교차 참조만 남깁니다(→ 7.1절 참고).
+
+### 22.1 `/logout` 세션 처리 결함 (2026-08-31 추가)
+
+- **발견 경위**: Phase 4 회귀 확인 작업 중 `automation/tests/test_login.py::
+  test_logout_via_direct_url`(TC-LOGIN-LOGOUT-015, Phase 1에서 이미 구현·검증되어
+  커밋(`ae6ba0c`)·push된 테스트, 이번 조사 시점까지 자동화 코드는 전혀 변경되지
+  않았음을 git log/diff로 확인)이 2026-08-31 15:46와 15:49 두 차례 재현 가능하게
+  실패했다. 이후 별도로 3회 재실행했을 때는 0/3 실패로, 매번 재현되지는 않는
+  **간헐적** 결함이다.
+- **증상**: 실패 시점 스크린샷(아래 증거 파일 경로) 2장 모두에서 `/logout` 직접
+  접근 후 Home으로는 정상 랜딩했지만, 상단 네비게이션에 "Logout / Delete Account /
+  Logged in as 테스트1"이 로그인 상태 그대로 남아 있었다. 즉 서버 세션이 실제로는
+  종료되지 않은 채 사용자에게는 Home 페이지가 그대로 응답되는 상태였다.
+- **근거**: Playwright MCP(조회 전용)로 로그아웃되지 않은 상태에서
+  `https://automationexercise.com/logout`에 직접 접근해 재확인한 결과 **HTTP 500**
+  Django 에러 페이지가 노출됨을 확인했다.
+  - `KeyError at /logout: 'user_id'`
+  - `Exception Location: .../django/contrib/sessions/backends/base.py, line 72, in __delitem__`
+  - `website/views.py, line 216, in logout: del request.session['user_id']`
+  - 즉 사이트의 `/logout` 뷰가 세션에 `user_id` 키가 이미 없는 경우(중복 로그아웃,
+    세션 만료 등 타이밍에 따라 발생 가능)를 예외 처리 없이 `del`로 접근해 서버
+    측에서 크래시하는 결함이 실제로 존재한다.
+- **결론/분류**: 자동화 코드/Locator/Assertion은 모두 의도한 대로 정확하게
+  판정하고 있으며, 이는 CLAUDE.md 13절 기준 **"실제 Product 문제"**(Production
+  사이트 `/logout` 엔드포인트의 세션 처리 결함)로 분류한다. Automation Code, Test
+  Data, Test Environment 문제가 아니다.
+- **관련 TC / 증거 파일**:
+  - TC: `TC-LOGIN-LOGOUT-015` (`docs/tc/login-logout.md`)
+  - 실패 스크린샷:
+    `automation/screenshots/test_logout_via_direct_url_failed_2026-08-31_15-46-12.png`,
+    `automation/screenshots/test_logout_via_direct_url_failed_2026-08-31_15-49-56.png`
+  - 리포트: `automation/reports/results_full.xml`
+- **대응 방침**:
+  - 이 결함을 이유로 `test_logout_via_direct_url`의 Assertion을 완화하거나 실패를
+    자동으로 우회 처리하지 않는다. 자동화 코드는 현재 Assertion을 그대로 유지한다.
+  - 이 TC가 향후 다시 실패하면, 이 알려진 결함(간헐적 세션 처리 이슈)에 해당하는지를
+    **우선 검토 대상으로 삼되**, 매번 자동으로 "알려진 이슈니까 PASS"로 간주하지
+    않는다. 실제 원인이 매번 이 결함과 동일한지 스크린샷/응답 상태로 재확인하고,
+    확인 전까지는 CLAUDE.md 13절 원칙에 따라 계속 실패(FAILED)로 보고한다.
+  - 이 결함이 TC-015 자체의 시나리오나 Expected Result 재작성이 필요하다고
+    판단되는 경우, 이 에이전트가 TC 문서를 직접 수정하지 않고 그 필요성만 사용자에게
+    보고한 뒤 `tc-agent`로의 위임을 제안한다(CLAUDE.md 6절 역할 분리 원칙).
+  - 사이트 자체의 결함(서버 코드 수정)은 이 프로젝트의 자동화 코드/문서 범위 밖이며
+    별도 조치 대상이 아니다.
+
+---
+
 ## 변경 이력
 
 | 날짜 | 변경 사유 | 상태 |
@@ -576,3 +633,5 @@ def login_page(driver):
  호출하도록 구현했고(automation/pages/base_page.py), Phase 1(test_login.py 11건)/\
  Phase 2(test_signup.py 6건) 전체 재실행으로 회귀 없음을 확인했다. 새 Page Object는\
  `BasePage` 상속만으로 자동 적용되므로 개별 구현이 불필요함을 명시. | 승인완료 |
+| 2026-08-31 | Phase 4 회귀 확인 중 발견된 TC-LOGIN-LOGOUT-015(`/logout` 세션 처리 결함)\
+ 재현 사례를 사용자 승인에 따라 알려진 Production 사이트 결함으로 신규 기록(22절 신설). | 승인완료 |

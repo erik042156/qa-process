@@ -46,9 +46,51 @@ Locator 확정 근거(Playwright MCP 실측, 2026-08-30, https://automationexerc
   확인된다.**
 - 로그아웃 상태 DOM에는 `/logout`, `/delete_account` 링크가 존재하지 않음(각 0개)을
   Products 페이지에서도 재확인했다(HomePage와 동일한 서버 조건부 렌더링 방식).
+
+Locator 확정 근거(Playwright MCP 실측, 2026-08-31, https://automationexercise.com/products
+및 https://automationexercise.com/products?search=shirt /
+https://automationexercise.com/products?search=zzzzznonexistent) - Phase 4 Task 1
+(검색 기능 확장):
+- 검색창/버튼은 `browser_evaluate`로 `document.querySelector('#search_product')` /
+  `#submit_search`가 각각 1개씩 존재함을 확인했다. 두 요소 모두 `id` 속성이 존재해(6.1절
+  1순위) `SEARCH_INPUT`/`SEARCH_BUTTON`을 `By.ID`로 정의했다. `id="search_product"`,
+  `id="submit_search"`이며 페이지 하단 뉴스레터 구독 입력창(`Your email address`)과는
+  별개의 요소임을 확인했다(뉴스레터 입력창은 다른 id를 사용, 혼동 없음).
+- 섹션 제목은 `.features_items h2.title` 하나뿐임을
+  `document.querySelectorAll('.features_items h2.title').length === 1`로 확인했다(전체
+  목록 상태에서는 텍스트 "All Products", 검색 실행 후에는 "Searched Products" — 화면
+  표시는 CSS `text-transform`으로 대문자화되어 "ALL PRODUCTS"/"SEARCHED PRODUCTS"로
+  보이지만 DOM 텍스트 자체는 대소문자 혼용임). id/data-qa가 없어 4순위(안정적 CSS
+  Selector)를 적용했다.
+- 상품 카드 반복 컨테이너는 `.features_items .col-sm-4`(카드 1개 = 이미지/가격/상품명/
+  Add to cart를 담은 `.product-image-wrapper`와 "View Product" 링크를 담은 `.choose`
+  형제 요소를 모두 포함하는 최상위 반복 단위)로 확정했다. `/products` 전체 목록에서
+  `document.querySelectorAll('.features_items .col-sm-4').length === 34`(실제 상품
+  카드 수와 일치)임을 확인했고, `?search=shirt` 결과 페이지에서는 13개로 정확히
+  줄어듦을 확인했다(id/data-qa 없어 4순위 CSS Selector 적용, `.product-image-wrapper`
+  단독으로는 "View Product" 링크를 포함하지 않아 카드 전체 단위로는 부족함을 실측으로
+  확인하고 상위 `.col-sm-4`를 채택).
+- 카드 내부 상대 Locator는 각 카드(`.col-sm-4`) 기준으로 다음과 같이 확정했다(모두 카드
+  스코프 내 1개씩만 존재함을 `querySelectorAll` count로 확인):
+  - `PRODUCT_CARD_IMAGE` = `.productinfo img` (카드당 1개)
+  - `PRODUCT_CARD_PRICE` = `.productinfo h2` (카드당 1개, 예: "Rs. 500")
+  - `PRODUCT_CARD_NAME` = `.productinfo p` (카드당 1개, 예: "Blue Top")
+  - `PRODUCT_CARD_ADD_TO_CART` = `.productinfo .add-to-cart` — 카드 마크업에는
+    hover 시 노출되는 `.product-overlay .overlay-content` 안에도 동일한 클래스
+    (`.add-to-cart`)를 가진 버튼이 중복 존재해(카드 스코프에서 `.add-to-cart`만으로는
+    2개) `.productinfo` 하위로 범위를 좁혀 1개로 고유화했다. `.productinfo` 내부의
+    버튼은 `getComputedStyle`로 `display: inline-block`, `visibility: visible`임을
+    확인해 기본 노출(hover 불필요) 상태임도 확인했다.
+  - `PRODUCT_CARD_VIEW_PRODUCT` = `.choose a` (카드당 1개, `href="/product_details/{id}"`)
+- 검색 결과 0건 페이지(`?search=zzzzznonexistent`)에서 `.features_items .col-sm-4`가
+  0개이고 섹션 제목 요소(`.features_items h2.title`)는 그대로 존재("Searched
+  Products")하며, "No result"류의 별도 안내 문구는 `document.body.innerText`에
+  없음을 확인했다(TC-PRODUCT-SEARCH-003 기대 결과와 일치).
 """
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.remote.webelement import WebElement
 
 from config.settings import BASE_URL
 from pages.base_page import BasePage
@@ -82,6 +124,27 @@ class ProductsPage(BasePage):
 
     # 상단 네비게이션 메뉴 구성 전체 조회용(ul.navbar-nav 하위 모든 li>a, 8개 실측 확인)
     NAV_MENU_ITEMS = (By.CSS_SELECTOR, "ul.navbar-nav li > a")
+
+    # 검색 기능(Phase 4 Task 1) - Playwright MCP 실측 확인 완료(위 docstring 참고)
+    # id 속성이 실제로 존재함을 확인해 6.1절 1순위(id)를 적용한다.
+    SEARCH_INPUT = (By.ID, "search_product")
+    SEARCH_BUTTON = (By.ID, "submit_search")
+
+    # 상품 목록 상단 섹션 제목 - "ALL PRODUCTS"/"SEARCHED PRODUCTS" 공용(위 docstring 참고)
+    SECTION_TITLE = (By.CSS_SELECTOR, ".features_items h2.title")
+
+    # 검색 결과/전체 목록 공용 상품 카드 컨테이너(카드 1개 = .col-sm-4 전체 반복 단위,
+    # find_elements로 복수 조회 대상). 위 docstring 참고.
+    PRODUCT_CARDS = (By.CSS_SELECTOR, ".features_items .col-sm-4")
+
+    # 카드 내부 요소 - 카드 하나(WebElement)를 기준으로 한 상대 Locator(위 docstring 참고).
+    PRODUCT_CARD_IMAGE = (By.CSS_SELECTOR, ".productinfo img")
+    PRODUCT_CARD_PRICE = (By.CSS_SELECTOR, ".productinfo h2")
+    PRODUCT_CARD_NAME = (By.CSS_SELECTOR, ".productinfo p")
+    # hover 시 노출되는 .product-overlay 내부에도 동일 클래스가 중복 존재해(위 docstring
+    # 참고) .productinfo 하위로 범위를 좁혀 고유화했다.
+    PRODUCT_CARD_ADD_TO_CART = (By.CSS_SELECTOR, ".productinfo .add-to-cart")
+    PRODUCT_CARD_VIEW_PRODUCT = (By.CSS_SELECTOR, ".choose a")
 
     def navigate(self) -> None:
         """Products 페이지(/products)로 이동한다."""
@@ -131,3 +194,103 @@ class ProductsPage(BasePage):
         texts = [element.text.strip() for element in elements]
         self.logger.debug("상단 네비게이션 메뉴 텍스트 조회 완료: %s", texts)
         return texts
+
+    def search_product(self, keyword: str) -> None:
+        """검색창에 keyword를 입력하고 돋보기 아이콘 버튼을 클릭해 검색을 실행한다."""
+        self.type_text(self.SEARCH_INPUT, keyword)
+        self.click(self.SEARCH_BUTTON)
+        self.logger.info("상품 검색 실행 완료(검색어 입력 후 버튼 클릭)")
+
+    def search_and_press_enter(self, keyword: str) -> None:
+        """검색창에 keyword를 입력한 뒤 돋보기 버튼은 클릭하지 않고 Enter 키만 입력한다.
+
+        TC-PRODUCT-SEARCH-008("Enter 키 입력만으로는 검색이 실행되지 않는지 확인") 전용
+        동작으로, `BasePage`에는 Enter 키 입력 공통 메서드가 없고 이 Feature에서만 필요한
+        1회성 로직이라 신규 공통 메서드를 추가하지 않고 이 메서드 내부에서 직접
+        구현한다(AUTOMATION_GUIDE 19절 "특정 Feature 하나에서만 쓰이는 로직을 섣불리
+        공통화하지 않는다").
+        """
+        self.type_text(self.SEARCH_INPUT, keyword)
+        self.find_element(self.SEARCH_INPUT).send_keys(Keys.ENTER)
+        self.logger.info("검색어 입력 후 Enter 키 입력 완료(버튼 클릭 없음)")
+
+    def get_section_title(self) -> str:
+        """상품 목록 상단 섹션 제목("ALL PRODUCTS"/"SEARCHED PRODUCTS")을 조회해
+        반환한다(Assertion 없음)."""
+        return self.get_text(self.SECTION_TITLE)
+
+    def get_product_card_count(self) -> int:
+        """노출된 상품 카드 개수를 반환한다(Assertion 없음).
+
+        `driver.find_elements()`(복수형)는 대상 요소가 없으면 즉시 빈 리스트를
+        반환하고 `WebDriverWait` 폴링을 하지 않으므로, 검색 결과가 0건인 페이지
+        (TC-PRODUCT-SEARCH-003)에서도 무한 대기 없이 안전하게 0을 반환한다.
+        """
+        count = len(self.driver.find_elements(*self.PRODUCT_CARDS))
+        self.logger.debug("상품 카드 개수 조회 완료: %s", count)
+        return count
+
+    def get_product_names(self) -> list[str]:
+        """카드별 상품명 텍스트 목록을 순서대로 반환한다(Assertion 없음).
+
+        `get_nav_menu_item_texts()`가 쓰는 패턴(먼저 `find_element()`로 첫 요소 로드를
+        대기한 뒤 `driver.find_elements()`로 복수 조회)을 재사용하되, 검색 결과 0건
+        페이지에서는 카드 자체가 DOM에 없어 `find_element()`(단수형)로 대기하면
+        Timeout이 발생하므로, 먼저 `get_product_card_count()`로 카드 존재 여부를 확인해
+        0건이면 즉시 빈 리스트를 반환한다.
+        """
+        if self.get_product_card_count() == 0:
+            return []
+        self.find_element(self.PRODUCT_CARDS)
+        cards = self.driver.find_elements(*self.PRODUCT_CARDS)
+        names = [card.find_element(*self.PRODUCT_CARD_NAME).text.strip() for card in cards]
+        self.logger.debug("상품 카드 이름 목록 조회 완료: %s", names)
+        return names
+
+    def _get_card_element(self, index: int) -> WebElement:
+        """index번째 상품 카드 `WebElement`를 조회해 반환한다(Assertion 없음).
+
+        [2026-08-31 코드 리뷰 반영, finding 2/3] `get_product_price_on_card()`,
+        `is_image_visible_on_card()`, `is_add_to_cart_visible_on_card()`,
+        `is_view_product_visible_on_card()` 4개 메서드에 중복돼 있던
+        `self.driver.find_elements(*self.PRODUCT_CARDS)[index]` 조회 로직을 이 비공개
+        헬퍼로 통합했다. index가 실제 카드 개수를 벗어나면 `IndexError`가 발생하는데,
+        이를 조용히 삼키지 않고 원인(요청 index/실제 카드 개수)을 `logger.error(...)`로
+        남긴 뒤 그대로 재전파한다(AUTOMATION_GUIDE 15절 "예외를 조용히 삼키지
+        않는다"). Page Layer 원칙에 따라 Assertion은 수행하지 않는다.
+        """
+        cards = self.driver.find_elements(*self.PRODUCT_CARDS)
+        try:
+            return cards[index]
+        except IndexError:
+            self.logger.error(
+                "요청한 카드 index가 범위를 벗어남(index: %s, 실제 카드 개수: %s)",
+                index,
+                len(cards),
+            )
+            raise
+
+    def get_product_price_on_card(self, index: int) -> str:
+        """index번째 카드 내부 가격 텍스트를 조회해 반환한다(Assertion 없음)."""
+        card = self._get_card_element(index)
+        price = card.find_element(*self.PRODUCT_CARD_PRICE).text.strip()
+        self.logger.debug("%s번째 카드 가격 조회 완료: %s", index, price)
+        return price
+
+    def is_image_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 상품 이미지의 노출 여부를 반환한다."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_IMAGE)
+        return bool(elements) and elements[0].is_displayed()
+
+    def is_add_to_cart_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 "Add to cart" 버튼의 노출 여부를 반환한다."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_ADD_TO_CART)
+        return bool(elements) and elements[0].is_displayed()
+
+    def is_view_product_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 "View Product" 링크의 노출 여부를 반환한다."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_VIEW_PRODUCT)
+        return bool(elements) and elements[0].is_displayed()
