@@ -6,7 +6,7 @@
 관련 Automation Candidate 문서: [tc/automation-candidates/login-logout.md, tc/automation-candidates/signup-delete-account.md, tc/automation-candidates/top-navigation.md, tc/automation-candidates/product-search.md, tc/automation-candidates/cart.md, tc/automation-candidates/product-detail.md, tc/automation-candidates/page-ui.md]
 관련 Automation Guide: docs/automation/AUTOMATION_GUIDE.md
 최초 작성일: 2026-08-27
-최근 변경일: 2026-08-30
+최근 변경일: 2026-08-31 (진행 현황 갱신)
 승인일: 2026-08-27
 ---
 
@@ -28,7 +28,7 @@ QA Decision = Approved
 **대상 Feature 및 확정 TC 수 총계**: `docs/tc/automation-candidates/` 하위 7개 문서
 전체(login-logout, cart, page-ui, product-detail, product-search,
 signup-delete-account, top-navigation)를 재조회한 결과, 7개 Feature 모두
-`상태: 자동화대상확정`이며 아래와 같이 총 **75건**의 TC가 최종 자동화 대상으로 확정되어
+`상태: 자동화대상확정`이며 아래와 같이 총 **76건**의 TC가 최종 자동화 대상으로 확정되어
 있다.
 
 | Feature | 확정(Approved) TC 수 |
@@ -36,16 +36,20 @@ signup-delete-account, top-navigation)를 재조회한 결과, 7개 Feature 모�
 | login-logout | 11 |
 | signup-delete-account | 11 |
 | top-navigation | 6 |
-| product-search | 7 |
+| product-search | 8 |
 | cart | 13 |
 | product-detail | 6 |
 | page-ui | 21 |
-| **합계** | **75** |
+| **합계** | **76** |
 
-이 수치는 `AUTOMATION_GUIDE.md` 0.1절의 2026-08-27 스냅샷(13/11/21/6/7/11/6)과 항목별로
-정확히 일치한다. 다만 이 Roadmap의 대상 확정 근거는 스냅샷 재사용이 아니라, 아래 "2. 입력
-문서 스냅샷"과 "8. 리스크 및 확인 필요 사항"에 기록한 대로 각 Candidate 문서와 원본 TC
-문서를 직접 재조회하여 별도로 검증한 결과다.
+이 수치 중 product-search를 제외한 6개 Feature는 `AUTOMATION_GUIDE.md` 0.1절의
+2026-08-27 스냅샷(13/11/21/6/11/6)과 항목별로 정확히 일치한다. product-search만
+2026-08-31 재확정(TC-PRODUCT-SEARCH-001/006 재평가, TC-010 신규 승인)에 따라 스냅샷
+당시 7건에서 8건으로 증가했으며, 이는 스냅샷 갱신 누락이 아니라 원본 TC 문서 자체가
+재승인되어 발생한 정당한 변경이다(상세는 8절 리스크 항목 참조). 이 Roadmap의 대상
+확정 근거는 스냅샷 재사용이 아니라, 아래 "2. 입력 문서 스냅샷"과 "8. 리스크 및 확인
+필요 사항"에 기록한 대로 각 Candidate 문서와 원본 TC 문서를 직접 재조회하여 별도로
+검증한 결과다.
 
 **Out of Scope(이 Roadmap이 다루지 않는 범위)**:
 - Shrimp Task 생성 및 세부 작업 분해 (별도 단계, 이 Roadmap 승인 이후 진행)
@@ -62,21 +66,21 @@ signup-delete-account, top-navigation)를 재조회한 결과, 7개 Feature 모�
 | prd/feature/login-logout.md | 승인완료 | 2026-08-20 |
 | prd/feature/signup-delete-account.md | 승인완료 | 2026-08-20 |
 | prd/feature/top-navigation.md | 승인완료 | 2026-08-21 |
-| prd/feature/product-search.md | 승인완료 | 2026-08-21 |
+| prd/feature/product-search.md | 승인완료 | 2026-08-31 (재승인) |
 | prd/feature/cart.md | 승인완료 | 2026-08-21 |
 | prd/feature/product-detail.md | 승인완료 | 2026-08-21 |
 | prd/feature/page-ui.md | 승인완료 | 2026-08-22 |
 | tc/login-logout.md | 승인완료 | 2026-08-22 |
 | tc/signup-delete-account.md | 승인완료 | 2026-08-22 |
 | tc/top-navigation.md | 승인완료 | 2026-08-22 |
-| tc/product-search.md | 승인완료 | 2026-08-22 |
+| tc/product-search.md | 승인완료 | 2026-08-31 (재승인) |
 | tc/cart.md | 승인완료 | 2026-08-22 |
 | tc/product-detail.md | 승인완료 | 2026-08-22 |
 | tc/page-ui.md | 승인완료 | 2026-08-22 |
 | tc/automation-candidates/login-logout.md | 자동화대상확정 | 확정일 2026-08-24 |
 | tc/automation-candidates/signup-delete-account.md | 자동화대상확정 | 확정일 2026-08-27 |
 | tc/automation-candidates/top-navigation.md | 자동화대상확정 | 확정일 2026-08-27 |
-| tc/automation-candidates/product-search.md | 자동화대상확정 | 확정일 2026-08-27 |
+| tc/automation-candidates/product-search.md | 자동화대상확정 | 확정일 2026-08-31 (재확정) |
 | tc/automation-candidates/cart.md | 자동화대상확정 | 확정일 2026-08-24 |
 | tc/automation-candidates/product-detail.md | 자동화대상확정 | 확정일 2026-08-27 |
 | tc/automation-candidates/page-ui.md | 자동화대상확정 | 확정일 2026-08-24 |
@@ -88,6 +92,16 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 문서의 "대상 TC 문서 최근 변경일(평가 시점 기준)"(전 Feature 공통 2026-08-22)이 현재
 원본 TC 문서의 "최근 변경일"과 정확히 일치해 평가 이후 원본 TC가 변경된 사실이 없음을
 확인했다. 불일치는 발견되지 않았다(상세는 8절 참조).
+
+**2026-08-31 부분 개정 관련 추가 확인**: 위 "재확인 결과(Workflow 2단계)" 문단은 2026-08-27
+시점 기준이며, product-search Feature는 이후 2026-08-31 REQ-PRODUCT-SEARCH-005 정정에
+따라 TC-PRODUCT-SEARCH-001(Expected Result 수정)/006(재작성)/010(신규 추가)이
+재승인·재확정되었다. 이번 부분 개정에서 product-search Candidate 문서와 원본 TC 문서를
+다시 대조한 결과, Approved TC 8건(001~006, 008, 010) 전건이 `docs/tc/product-search.md`에
+실제로 존재하고 해당 문서가 여전히 `상태: 승인완료`이며, Candidate 문서의 "대상 TC 문서
+최근 변경일(평가 시점 기준)"(2026-08-31)이 원본 TC 문서의 "최근 변경일"(2026-08-31)과
+정확히 일치함을 확인했다(불일치 없음). 다른 6개 Feature는 이번 변경과 무관하므로
+재검증 대상이 아니다.
 
 ## 3. 기술 스택 및 아키텍처 (Reference)
 
@@ -201,9 +215,18 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 
 ### Phase 4: 상품 검색 (product-search) 자동화 구현
 
-- 대상 TC: 7건 (TC-PRODUCT-SEARCH-001, 002, 003, 004, 005, 006, 008)
+- 대상 TC: 8건 (TC-PRODUCT-SEARCH-001, 002, 003, 004, 005, 006, 008, 010) —
+  **[2026-08-31 재승인 반영]** 기존 7건(001~006, 008)에서 TC-010(하위 카테고리명
+  substring 매칭, P0)이 신규 추가되어 8건으로 확대. TC-001(Expected Result 확장 —
+  상품명 또는 하위 카테고리명 매칭)과 TC-006(검증 방향 반전 — 하위 카테고리명은 매칭
+  대상, 브랜드명·상위 카테고리명만 제외)도 시나리오가 변경되었으므로, 이미 작성된
+  TC-001 테스트 코드는 새 Expected Result 기준으로 재작업이 필요하다(자동화 구현
+  Agent 판단·처리 영역).
 - 필요 Page Object: `ProductsPage` 확장(검색창 입력, 검색 실행, 검색 결과 카드/제목/URL
-  조회)
+  조회). 신규 TC-010은 하위 카테고리명 매칭 결과 상품이 노출되는지 확인하는
+  시나리오로, 기존에 정의된 검색 결과 카드 조회 메서드로 충분한지 또는 추가 조회
+  메서드가 필요한지는 구현 단계(자동화 구현 Agent)에서 판단한다(이 Roadmap 문서는
+  대상 범위만 갱신).
 - 선행 조건(의존 Feature): 없음 (로그인/로그아웃 상태와 무관하게 수행 가능한 독립
   Feature). 다만 Phase 3에서 이미 만들어진 `ProductsPage` 기본 골격을 확장하는 형태로
   구현한다.
@@ -274,7 +297,7 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | login-logout | 11 | TC-LOGIN-LOGOUT-001, 002, 003, 004, 005, 006, 010, 011, 013, 014, 015 | LoginPage, HomePage(골격) | 없음 | Phase 1 |
 | signup-delete-account | 11 | TC-SIGNUP-DELETE-ACCOUNT-001, 002, 004, 005, 006, 007, 010, 011, 012, 013, 014 | SignupPage, AccountCreatedPage, AccountDeletedPage, LoginPage(확장) | login-logout | Phase 2 |
 | top-navigation | 6 | TC-TOP-NAVIGATION-001~006 | HomePage/ProductsPage/CartPage(네비게이션 확장) | login-logout | Phase 3 |
-| product-search | 7 | TC-PRODUCT-SEARCH-001, 002, 003, 004, 005, 006, 008 | ProductsPage(검색 확장) | 없음 | Phase 4 |
+| product-search | 8 | TC-PRODUCT-SEARCH-001, 002, 003, 004, 005, 006, 008, 010 | ProductsPage(검색 확장) | 없음 | Phase 4 |
 | cart | 13 | TC-CART-001, 002, 003, 004, 005, 006, 008, 009, 010, 011, 014, 015, 016 | CartPage, AddToCartModal, CheckoutPage(골격), HomePage/ProductsPage(Add to cart 확장) | login-logout | Phase 5 |
 | product-detail | 6 | TC-PRODUCT-DETAIL-001, 002, 008, 015, 016, 021 | ProductDetailPage(신규), AddToCartModal(재사용) | cart | Phase 6 |
 | page-ui | 21 | TC-PAGE-UI-006, 009, 015, 019, 020, 021, 023, 024, 025, 026, 028, 029, 030, 031, 032, 033, 034, 035, 036, 037, 039 | HomePage/ProductsPage/CartPage/CheckoutPage(확장), CategoryProductsPage, BrandProductsPage(신규) | login-logout, cart | Phase 7 |
@@ -353,8 +376,8 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | Phase 1 | login-logout | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료, 커밋 `ae6ba0c`, `origin/master`(https://github.com/erik042156/qa-process) push 완료 |
 | Phase 2 | signup-delete-account | 완료 | Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 4건 수정, 재검증 과정에서 발견한 자체 회귀 1건도 재수정), 커밋 `a4f0825`, `origin/master` push 완료. 구현 중 실제 사이트 동작이 TC-006 승인 내용과 달라(Continue 클릭 시 자동 로그인됨) 사용자 확인 후 TC/PRD 문서 갱신. Production 사이트의 제3자 광고 오버레이 방해 문제를 발견해 BasePage 방어 로직 추가 및 AUTOMATION_GUIDE 7.1절 신규 문서화(일부 극단적 클릭 차단 사례는 알려진 한계로 잔존, conftest.py 광고 도메인 차단은 사용자 결정으로 보류) |
 | Phase 3 | top-navigation | 완료 | Approved TC 6건 전건 pytest PASSED, 코드 리뷰 반영 완료(finding 10건 중 correctness/견고성 4건 수정 — click_and_retry_if_vignette() 경쟁 조건 수정, 광고 방어 누락 3곳 보강, Locator 스코핑 일관성 정리, 미사용 죽은 코드 3개 제거), 커밋 `ece59d7`, `origin/master` push 완료. ProductsPage/CartPage 신규 구현 과정에서 페이지마다 로고/모달/브레드크럼으로 인한 중복 href를 실측으로 발견해 개별 대응. TC-006은 원본 TC의 외부 정보 의존(재사용 계정의 최초 가입 Name) 대신 Phase 2 회원가입 플로우 재사용으로 자기완결적으로 재설계. Phase 1+2+3 결합 회귀 28건 중 코드 자체의 진짜 실패는 0건이며, 제3자 광고발 브라우저 세션 크래시가 이례적으로 높은 빈도로 관측되어 사용자 확인 후 현재 코드로 완료 처리(AUTOMATION_GUIDE 7.1절 알려진 한계) |
-| Phase 4 | product-search | 착수 전 | 다음 착수 대상 |
-| Phase 5 | cart | 착수 전 | |
+| Phase 4 | product-search | pytest 통과, 코드 리뷰·커밋 대기 | Approved TC 8건(001,002,003,004,005,006,008,010) 전건 pytest PASSED(TC-006은 브랜드명 4개 keyword parametrize, 총 실행 케이스 11개). **[2026-08-31 구현 중 PRD/TC 2차 재승인 발생]** 자동화 구현 중 실제 사이트 검색 매칭 로직이 승인된 PRD/TC와 달라 PRD(REQ-PRODUCT-SEARCH-001/005/008)를 2차례 재정정하고(① 하위 카테고리명 매칭 추가, ② 브랜드명은 완전 일치도 항상 제외로 명확화·상위 카테고리명은 4.2 미확인 항목으로 이관) TC-001 Expected Result 수정, TC-006을 브랜드명 4건만 검증하도록 재작성, TC-010(하위 카테고리명 매칭 회귀 테스트) 신규 추가 — 모두 사용자 직접 승인, Candidate 문서도 재확정 완료(Score 재산정 포함). TC-005는 assertion 방향이 반대로 작성된 코드 버그도 발견해 수정(승인 불필요, 코드 전용). Phase 1~4 전체 회귀(39건) 확인 중 Phase 4와 무관한 Phase 1 회귀 1건(TC-LOGIN-LOGOUT-015, `/logout` 직접 접근 시 Home으로 랜딩)을 발견해 별도 원인 조사 중(8절 리스크 참고). 코드 리뷰와 Git Commit/Push는 아직 진행하지 않음 |
+| Phase 5 | cart | 착수 전 | Phase 4 코드 리뷰/커밋 완료 후 착수 예정 |
 | Phase 6 | product-detail | 착수 전 | |
 | Phase 7 | page-ui | 착수 전 | |
 | Phase Final | CI/CD 및 Slack 알림 연동 | 보류(사용자 결정) | "CI 워크플로우 작성은 모든 코드가 완성된 이후 진행"(2026-08-30 사용자 지시) — Feature Phase 1~7이 모두 완료된 뒤 착수 |
@@ -369,3 +392,5 @@ grep으로 재확인했고, 7개 원본 TC 문서 모두 여전히 `상태: 승�
 | 2026-08-30 | 사용자 요청에 따른 진행 현황 갱신. 9절 "진행 현황" 신규 추가 — Phase 0/1 완료(각각 커밋 `790ff26`/`ae6ba0c`, Phase 1은 GitHub `origin/master` push 완료 및 코드 리뷰 반영 포함)와 Phase 2~7 착수 전 상태를 기록. Phase Final(CI/CD)은 사용자 지시("모든 코드가 완성된 이후 진행")에 따라 보류로 명시. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-30 | 사용자 요청에 따른 진행 현황 갱신. Phase 2(signup-delete-account) 완료로 표시 — Approved TC 11건 전건 pytest PASSED, 코드 리뷰 반영, 커밋 `a4f0825` 및 `origin/master` push 완료. 구현 중 발견한 두 가지 특이사항(TC-006 실제 사이트 동작이 승인 내용과 달라 사용자 확인 후 TC/PRD 문서 갱신, Production 사이트 제3자 광고 오버레이 방해로 BasePage 방어 로직 추가 및 AUTOMATION_GUIDE 7.1절 신규 문서화)을 비고에 기록. Phase 3(top-navigation)을 다음 착수 대상으로 갱신. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
 | 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 3(top-navigation) 완료로 표시 — Approved TC 6건 전건 pytest PASSED, 코드 리뷰 반영(finding 10건 중 4건 수정: 경쟁 조건, 광고 방어 누락 3곳, Locator 스코핑 일관성, 미사용 코드 제거), 커밋 `ece59d7` 및 `origin/master` push 완료. 구현 중 발견한 특이사항(페이지별 중복 href 실측 대응, TC-006 자기완결적 재설계, 제3자 광고발 브라우저 크래시 빈도 상승을 사용자에게 보고 후 현재 코드로 완료 처리 승인받음)을 비고에 기록. Phase 4(product-search)를 다음 착수 대상으로 갱신. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
+| 2026-08-31 | (재승인) product-search Candidate 문서 재확정(TC-PRODUCT-SEARCH-001/006 재평가, TC-010 신규 승인)에 따른 부분 개정. 1절 대상 Feature 및 확정 TC 수 총계(product-search 7→8, 합계 75→76), 2절 입력 문서 스냅샷(product-search 관련 PRD/TC/Candidate 최근 변경일·확정일 2026-08-31 갱신), 5절 Phase 4 대상 TC(7건→8건, TC-010 추가) 및 시나리오 변경 사항 안내, 6절 매핑표(product-search 확정 TC 수/ID 목록 갱신), 9절 진행 현황 Phase 4 비고에 범위 변경 사실 기록. Phase 4는 아직 착수 전이므로 이미 작성된 TC-001 테스트 코드 재작업 필요성만 비고에 안내하고 실제 코드 수정은 자동화 구현 단계 몫으로 명시. 그 외 Phase 순서/Definition of Done 등 기존 계획은 변경하지 않음. | 승인완료(재승인) |
+| 2026-08-31 | 사용자 요청에 따른 진행 현황 갱신. Phase 4(product-search) Approved TC 8건 전건 pytest PASSED로 갱신(TC-006은 브랜드명 4개 keyword parametrize). 구현 중 REQ-PRODUCT-SEARCH-005가 한 차례 더 재정정되어(브랜드명은 완전 일치도 항상 제외로 명확화, 상위 카테고리명 매칭 여부는 4.2 미확인 항목으로 이관) TC-006이 브랜드명 4건만 검증하도록 재작성되고 Candidate 문서도 재확정된 경위를 비고에 기록. TC-005의 assertion 방향 오류(배제↔포함) 코드 버그 수정 사실과, Phase 1~4 전체 회귀 확인 중 발견된 Phase 4와 무관한 Phase 1 회귀(TC-LOGIN-LOGOUT-015, 원인 조사 중)도 함께 기록. 코드 리뷰·Git Commit/Push는 아직 진행 전이라 Phase 4 상태를 "완료"가 아닌 "pytest 통과, 코드 리뷰·커밋 대기"로 정확히 표기. Phase 5(cart)는 Phase 4 코드 리뷰/커밋 완료 후 착수 예정으로 비고 추가. Phase 순서/범위/Definition of Done 등 기존 계획 내용은 변경하지 않음. | 승인완료 |
