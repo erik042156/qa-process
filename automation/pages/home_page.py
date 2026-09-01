@@ -71,9 +71,19 @@ https://automationexercise.com/, 로그아웃 상태):
   해당하지 않는다고 판단해 수행함) 담기 확인 모달(`id="cartModal"`)이 노출됨을 확인했다 —
   상세 내용은 `pages/add_to_cart_modal.py` docstring 참고. 확인 후 "Continue Shopping"으로
   모달을 닫고 방금 담은 상품은 장바구니에서 삭제해 탐색 세션을 원상 복구했다.
+
+Phase 6 확장("View Product" 링크, Playwright MCP 실측, 2026-09-01,
+https://automationexercise.com/, 로그아웃 상태):
+- TC-PRODUCT-DETAIL-001(Home 카드의 "View Product" 클릭 시 `/product_details/{id}` 패턴으로
+  이동하는지 확인)을 위해 카드 내부 "View Product" 링크 Locator를 실측했다.
+  `.features_items .col-sm-4 .choose a`가 카드 개수(34개)와 정확히 일치함을
+  `document.querySelectorAll(...).length === 34`로 확인했고(카드당 1개), 첫 번째 카드의
+  `href="/product_details/1"`, 텍스트 "View Product"임을 확인했다(`products_page.py`의
+  `PRODUCT_CARD_VIEW_PRODUCT`와 동일한 마크업 패턴).
 """
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 
 from config.settings import BASE_URL
 from pages.base_page import BasePage
@@ -116,6 +126,10 @@ class HomePage(BasePage):
     PRODUCT_CARDS = (By.CSS_SELECTOR, ".features_items .col-sm-4")
     PRODUCT_CARD_NAME = (By.CSS_SELECTOR, ".productinfo p")
     PRODUCT_CARD_ADD_TO_CART = (By.CSS_SELECTOR, ".productinfo .add-to-cart")
+
+    # "View Product" 링크(Phase 6) - Playwright MCP 실측 확인 완료(위 docstring "Phase 6
+    # 확장" 참고, products_page.py의 PRODUCT_CARD_VIEW_PRODUCT와 동일한 실측 근거)
+    PRODUCT_CARD_VIEW_PRODUCT = (By.CSS_SELECTOR, ".choose a")
 
     def navigate(self) -> None:
         """Home 페이지(루트 URL)로 이동한다."""
@@ -218,22 +232,20 @@ class HomePage(BasePage):
         self.logger.debug("상품 카드 이름 목록 조회 완료: %s", names)
         return names
 
-    def click_add_to_cart_on_card(self, index: int) -> None:
-        """index번째 상품 카드의 "Add to cart" 버튼을 클릭한다.
+    def _get_card_element(self, index: int) -> WebElement:
+        """index번째 상품 카드 `WebElement`를 조회해 반환한다(Assertion 없음, Phase 6 추가).
 
-        `ProductsPage._get_card_element(index)`와 동일한 패턴으로 카드를 먼저 조회한 뒤,
-        카드 내부의 "Add to cart" 버튼은 페이지 전체에서 동일 셀렉터가 카드 수만큼
-        중복되어 `BasePage.click(locator)`(단일 Locator 대상)로는 특정 카드를 지정할 수
-        없으므로 `BasePage.click_element(element)`로 이미 조회한 `WebElement`를 직접
-        클릭한다.
-
-        Raises:
-            IndexError: index가 실제 카드 개수를 벗어난 경우(원인을 로깅한 뒤 재전파).
+        [Phase 6] 기존 `click_add_to_cart_on_card()`에 인라인으로 구현되어 있던 카드 조회
+        로직을, 신규 `click_view_product_on_card()`(TC-PRODUCT-DETAIL-001)에서도 동일하게
+        필요해져 이 비공개 헬퍼로 통합했다(AUTOMATION_GUIDE 19절 "2회 이상 반복되는 코드는
+        공통 메서드로 분리", `ProductsPage._get_card_element()`와 동일한 패턴). index가
+        실제 카드 개수를 벗어나면 `IndexError`가 발생하며, 이를 조용히 삼키지 않고 원인을
+        `logger.error(...)`로 남긴 뒤 그대로 재전파한다(AUTOMATION_GUIDE 15절).
         """
         self.find_element(self.PRODUCT_CARDS)
         cards = self.driver.find_elements(*self.PRODUCT_CARDS)
         try:
-            card = cards[index]
+            return cards[index]
         except IndexError:
             self.logger.error(
                 "요청한 카드 index가 범위를 벗어남(index: %s, 실제 카드 개수: %s)",
@@ -241,6 +253,39 @@ class HomePage(BasePage):
                 len(cards),
             )
             raise
+
+    def click_add_to_cart_on_card(self, index: int) -> None:
+        """index번째 상품 카드의 "Add to cart" 버튼을 클릭한다.
+
+        카드 내부의 "Add to cart" 버튼은 페이지 전체에서 동일 셀렉터가 카드 수만큼
+        중복되어 `BasePage.click(locator)`(단일 Locator 대상)로는 특정 카드를 지정할 수
+        없으므로 `BasePage.click_element(element)`로 `_get_card_element(index)`가 조회한
+        `WebElement`를 직접 클릭한다.
+        """
+        card = self._get_card_element(index)
         add_to_cart_button = card.find_element(*self.PRODUCT_CARD_ADD_TO_CART)
         self.click_element(add_to_cart_button)
         self.logger.info("%s번째 상품 카드의 'Add to cart' 클릭 완료", index)
+
+    def click_view_product_on_card(self, index: int) -> None:
+        """index번째 상품 카드의 "View Product" 링크를 클릭해 상세 페이지로 이동한다
+        (Phase 6, TC-PRODUCT-DETAIL-001).
+
+        [2026-09-01 실측] pytest 실행 중 재현·확인한 결함: 이 링크 클릭이 실제 페이지 전체
+        이동(`<a href="/product_details/{id}">`)을 트리거하는데, `click_element()`의
+        스크롤+JS 클릭 우회로 클릭 가로채임 자체는 회피해도 Google Vignette 전면 광고가 그
+        직후 다시 개입해 실제 상세 페이지로 이동하지 못하는 현상이 확인되었다
+        (`click_products()`/`click_cart()` 등이 이미 겪은 것과 동일한 결함 패턴). 이
+        메서드는 index로 카드를 먼저 찾아야 해 Locator 하나로 표현할 수 없으므로,
+        Locator 전용 `click_and_retry_if_vignette()` 대신 범용 버전
+        `BasePage.click_and_retry_if_vignette_action()`을 사용해 "카드 재조회 + 클릭"
+        전체를 재시도 가능하게 했다.
+        """
+
+        def _click() -> None:
+            card = self._get_card_element(index)
+            view_product_link = card.find_element(*self.PRODUCT_CARD_VIEW_PRODUCT)
+            self.click_element(view_product_link)
+
+        self.click_and_retry_if_vignette_action(_click)
+        self.logger.info("%s번째 상품 카드의 'View Product' 클릭 완료", index)

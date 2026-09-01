@@ -12,6 +12,7 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
     NoSuchElementException,
+    StaleElementReferenceException,
     TimeoutException,
 )
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -186,7 +187,27 @@ class BasePage:
         기다려 판단하도록 수정했다 — 나타나지 않으면(대부분의 경우) `TimeoutException`을
         정상 경로로 간주하고 그대로 반환한다.
         """
-        self.click(locator, timeout)
+        self.click_and_retry_if_vignette_action(lambda: self.click(locator, timeout))
+
+    def click_and_retry_if_vignette_action(self, click_action) -> None:
+        """`click_and_retry_if_vignette()`의 범용(callable 기반) 버전(Phase 6, 2026-09-01
+        추가).
+
+        `click_and_retry_if_vignette(locator)`는 Locator 튜플 하나로 재클릭 시 요소를 다시
+        찾을 수 있는 경우에만 쓸 수 있다. 하지만 상품 카드 내부 "View Product" 링크처럼
+        동일 Locator가 카드 수만큼 중복 존재해 index로 특정 카드를 먼저 찾아야 하는 경우
+        (`HomePage.click_view_product_on_card()`), 첫 클릭이 실제로 페이지 이동을
+        트리거했다면 기존에 조회해둔 `WebElement` 참조는 stale해지므로 "카드 재조회 + 클릭"
+        전체를 다시 수행해야 한다. 이 메서드는 그 전체 동작을 `click_action`(인자 없는
+        callable)으로 받아 `click_and_retry_if_vignette()`와 동일한 Vignette 감지·재시도
+        로직을 적용한다.
+
+        [Phase 6, 2026-09-01 실측] TC-PRODUCT-DETAIL-001(`HomePage.click_view_product_on_card()`)
+        pytest 실행 중 이 결함이 실제로 재현되어(스크롤+JS 클릭 우회로 클릭 가로채임 자체는
+        회피했으나, Google Vignette 광고가 클릭 직후 다시 개입해 실제 상세 페이지 이동이
+        되지 않음) 이 범용 버전을 추가하게 되었다.
+        """
+        click_action()
         try:
             WebDriverWait(self.driver, self.AD_OVERLAY_DISMISS_TIMEOUT).until(
                 EC.url_contains("google_vignette")
@@ -194,11 +215,10 @@ class BasePage:
         except TimeoutException:
             return
         self.logger.warning(
-            "클릭 후 Google Vignette 광고로 추정되는 오버레이가 감지되어 재클릭 "
-            "시도: %s",
+            "클릭 후 Google Vignette 광고로 추정되는 오버레이가 감지되어 재클릭 시도: %s",
             self.driver.current_url,
         )
-        self.click(locator, timeout)
+        click_action()
 
     def type_text(self, locator: tuple, text: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """요소가 보일 때까지 대기한 뒤 기존 값을 지우고 텍스트를 입력한다.
@@ -258,6 +278,17 @@ class BasePage:
         [2026-08-31 코드 리뷰 반영] 클릭 가로채임 재시도 로직은 `click()`과 공유하는
         `_click_with_intercept_retry()`를 사용한다(중복 구현 금지, 위 헬퍼 docstring
         참고).
+
+        [2026-09-01 코드 리뷰 반영] `_dismiss_ad_overlay_if_present()`가 광고 오버레이를
+        닫으며 DOM을 변경하면, 호출부가 이 메서드 호출 전에 미리 조회해 둔 `element`
+        참조가 무효화(stale)될 수 있다(예: `HomePage.click_view_product_on_card()`처럼
+        카드 index로 미리 찾아둔 `WebElement`를 넘기는 호출부). 이 경우
+        `EC.element_to_be_clickable(element)`가 내부적으로 `StaleElementReferenceException`을
+        발생시키는데, `WebDriverWait`의 기본 `ignored_exceptions`에는 포함되지 않아
+        재시도 없이 즉시 전파된다. 원인을 진단 가능하게 로깅한 뒤 그대로 재전파한다
+        (AUTOMATION_GUIDE 15절 "조용히 삼키지 않는다"). 호출부가 재시도까지 필요하면
+        `click_and_retry_if_vignette_action()`처럼 "요소 재조회 + 클릭" 전체를 감싼
+        callable을 사용한다.
         """
         self._dismiss_ad_overlay_if_present()
         try:
@@ -266,6 +297,12 @@ class BasePage:
             )
         except TimeoutException:
             self.logger.error("WebElement가 클릭 가능한 상태가 되지 않음(Timeout)")
+            raise
+        except StaleElementReferenceException:
+            self.logger.error(
+                "WebElement 참조가 무효화됨(stale) - 광고 오버레이 제거 등으로 DOM이 "
+                "변경되어 클릭 전에 미리 조회해 둔 요소를 더 이상 사용할 수 없음"
+            )
             raise
         self._click_with_intercept_retry(clickable_element, "WebElement 직접 클릭")
         self.logger.info("WebElement 직접 클릭 완료")
