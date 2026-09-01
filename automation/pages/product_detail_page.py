@@ -45,6 +45,19 @@ Locator 확정 근거(Playwright MCP 실측, 2026-09-01, https://automationexerc
   실행 환경에서 그대로 재현된다) 스피너 버튼 클릭의 결정적이고 이식성 있는 대체 수단으로
   `ArrowDown` 키 입력을 사용한다(`click_quantity_spin_down()`). 이 대체 수단은 좌표 기반
   클릭(브라우저/DPI에 따라 스피너 버튼 위치가 달라질 수 있어 불안정)보다 안정적이다.
+
+Phase 7 확장(Category/Brand 텍스트, Playwright MCP 실측, 2026-09-01,
+https://automationexercise.com/product_details/1, 로그아웃 상태):
+- TC-PAGE-UI-029/030(카테고리/브랜드 필터링 정확성 - 목록 페이지의 각 상품이 실제로 해당
+  카테고리/브랜드에 속하는지 확인)을 위해 `.product-information` 내부의 안내 문단을
+  실측했다. `Array.from(document.querySelector('.product-information')
+  .querySelectorAll('p')).map(p => p.textContent)` 결과 `["Category: Women > Tops",
+  "Availability: In Stock", "Condition: New", "Brand:  Polo"]` 4개 문단이 순서대로
+  존재함을 확인했다. `id`/`data-qa`가 없고 클래스만으로는 4개 문단을 구분할 수 없어(모두
+  형제 `<p>`), 텍스트 접두사(`"Category:"`, `"Brand:"`)를 조건으로 하는 상대 XPath(6.1절
+  5순위)로 각각 고유하게 지정했다 - 다른 카테고리(예: Kids)에서 문단 순서가 달라지거나
+  일부 상품에 "Brand" 문단이 없을 가능성(실측하지 않은 카테고리)에도 순서에 의존하지 않는
+  안정적인 방식이다.
 """
 
 from selenium.common.exceptions import TimeoutException
@@ -82,6 +95,30 @@ class ProductDetailPage(BasePage):
     REVIEW_SUBMIT_BUTTON = (By.ID, "button-review")
     REVIEW_SUCCESS_MESSAGE = (By.CSS_SELECTOR, "#review-section .alert-success span")
 
+    # Category/Brand 안내 문단(Phase 7) - Playwright MCP 실측 확인 완료(위 docstring
+    # "Phase 7 확장" 참고, 6.1절 5순위 텍스트 조건 기반 상대 XPath).
+    # [2026-09-01 pytest 실행 중 재현·확인한 결함] 최초 구현은 `contains(text(), ...)`
+    # (해당 요소의 "직계" 텍스트 노드만 검사)를 사용했는데, 실제 pytest(Selenium ChromeDriver)
+    # 실행 중 이 사이트에 제3자 확장 프로그램/광고 네트워크로 추정되는 `class="google-anno"`
+    # 주석(annotation) `<a>` 요소가 `<p>` 문단 내부에 실제로 주입되어 텍스트가 여러 노드로
+    # 쪼개지는 현상이 재현되었다(`BRAND_TEXT`가 매번 Timeout으로 실패, 특히 "Brand:" 문단
+    # 전체가 이 주석 요소로 감싸지는 경우가 있어 직계 텍스트 노드 매칭이 완전히 실패함).
+    # 기존에 `pages/account_created_page.py`/`account_deleted_page.py` docstring은 이
+    # "google-anno" 아티팩트를 Playwright MCP 브라우저 세션 전용 현상으로 추정했으나, 이번
+    # 실측으로 실제 Selenium(ChromeDriver, 확장 프로그램 미설치 상태로 실행) 세션에서도
+    # 동일하게 재현됨을 확인했다 - 사용자에게 보고가 필요한 사실로 판단한다(자세한 내용은
+    # 자동화 구현 결과 보고 참고). `contains(text(), ...)`를 `contains(., ...)`(해당 요소의
+    # 문자열 값 전체 - 자손 텍스트까지 포함)로 교체해 중첩 삽입 요소와 무관하게 안정적으로
+    # 매칭되도록 수정했다(Full XPath가 아닌 상대 XPath 그대로 유지).
+    CATEGORY_TEXT = (
+        By.XPATH,
+        "//div[@class='product-information']//p[contains(., 'Category:')]",
+    )
+    BRAND_TEXT = (
+        By.XPATH,
+        "//div[@class='product-information']//p[contains(., 'Brand:')]",
+    )
+
     def navigate(self, product_id: int) -> None:
         """상품 상세 페이지(/product_details/{product_id})로 이동한다."""
         url = f"{BASE_URL.rstrip('/')}/product_details/{product_id}"
@@ -99,6 +136,16 @@ class ProductDetailPage(BasePage):
     def get_price_text(self) -> str:
         """가격 텍스트("Rs. {숫자}" 형식)를 조회해 반환한다(Assertion 없음)."""
         return self.get_text(self.PRICE)
+
+    def get_category_text(self) -> str:
+        """카테고리 안내 문단(예: "Category: Women > Tops")을 조회해 반환한다(Phase 7,
+        TC-PAGE-UI-029, Assertion 없음)."""
+        return self.get_text(self.CATEGORY_TEXT)
+
+    def get_brand_text(self) -> str:
+        """브랜드 안내 문단(예: "Brand:  Polo")을 조회해 반환한다(Phase 7, TC-PAGE-UI-030,
+        Assertion 없음)."""
+        return self.get_text(self.BRAND_TEXT)
 
     def set_quantity(self, value: str) -> None:
         """Quantity 입력란의 기존 값을 지우고 지정한 값을 입력한다."""

@@ -40,6 +40,36 @@ Locator 확정 근거(Playwright MCP 실측, 2026-08-31, https://automationexerc
   로그인 상태에서 버튼 클릭 시 모달 없이 `/checkout`으로 바로 이동하는지(TC-CART-011)는
   `BasePage.wait_for_url_contains("/checkout")`로 확인한다(이 Page Object에 별도 메서드를
   추가하지 않음 - 이미 BasePage가 제공).
+
+Phase 7 확장(Address Details/Review Your Order/Total Amount/Place Order, Playwright MCP
+실측, 2026-09-01, https://automationexercise.com/checkout - 5.4절 "MCP 브라우저와 실제
+테스트(Selenium) 환경이 다르게 동작함" 관련 참고: 이번 세션의 MCP 브라우저에 예상치 못한
+기존 로그인 세션/장바구니 데이터가 남아있어 이를 그대로 조회만 하고 활용했다,
+`pages/home_page.py` docstring "예상치 못한 관찰 사항" 참고. 실제 pytest(Selenium) 실행
+시에는 반드시 `CartPage.click_proceed_to_checkout()`으로 진입해야 하며(`/checkout`을
+`driver.get()`으로 직접 접근하면 Review Your Order 표/Total Amount가 비정상적으로
+비어보이는 현상이 관찰됨) 이 Page Object는 그 전제를 그대로 따른다):
+- 섹션 제목은 `h2.heading`(페이지 전체 기준 2개: "Address Details", "Review Your Order")로,
+  텍스트로 구분해야 해 6.1절 5순위 상대 XPath를 사용한다.
+- "Your Delivery Address"는 `#address_delivery`, "Your Billing Address"는
+  `#address_invoice`(각각 페이지 전체 기준 1개, 6.1절 1순위 id 적용)이며, 순수 텍스트로
+  구성된 `<li>` 목록(이름/회사(빈칸)/주소1/주소2/도시-주-우편번호/국가/전화번호)이고 입력
+  요소(input 등)는 없음을 확인했다(REQ-PAGE-UI-031 read-only 특성과 일치, 단 read-only
+  자체를 검증하는 TC-PAGE-UI-040은 Approved 대상이 아니라 이 Phase에서 별도 메서드를
+  추가하지 않는다).
+- Review Your Order 표는 `table.table-condensed`(id 없음, Cart 페이지의
+  `#cart_info_table`과 다른 별도 컨테이너, 페이지 전체 기준 1개)이며, 행
+  (`table.table-condensed tbody tr`) 내부에 Cart 페이지와 완전히 동일한 클래스
+  (`.cart_product img`/`.cart_description`/`.cart_price`/`.cart_quantity`/`.cart_total`)를
+  그대로 재사용하는 마크업임을 확인했다(장바구니와 같은 템플릿 partial로 추정).
+- Total Amount는 표의 마지막 행(`tbody tr:last-child`) 안의 `.cart_total_price`이며,
+  일반 상품 행에도 동일 클래스(`.cart_total`의 자식 `.cart_total_price`)가 존재해 스코프를
+  마지막 행으로 좁혀야 고유해짐을 확인했다(위 파일 docstring과 별개로 Cart 행과 클래스를
+  공유하므로 스코핑 필요).
+- "Place Order" 버튼은 `a.check_out[href='/payment']`(페이지 전체 기준 1개, 텍스트
+  "Place Order")로 확인했다. 실제 클릭(`/payment`로 이동)은 Approved TC(TC-PAGE-UI-039,
+  "노출 여부"만 검증)의 범위가 아니므로 이 Page Object에 클릭 메서드를 추가하지 않는다
+  (CLAUDE.md 12절 "불필요한 코드 생성 금지").
 """
 
 from selenium.webdriver.common.by import By
@@ -61,6 +91,41 @@ class CheckoutPage(BasePage):
     BODY_MESSAGE = (By.CSS_SELECTOR, "#checkoutModal .modal-body")
     REGISTER_LOGIN_LINK = (By.CSS_SELECTOR, "#checkoutModal .modal-body a[href='/login']")
     CONTINUE_ON_CART_BUTTON = (By.CSS_SELECTOR, "#checkoutModal .close-checkout-modal")
+
+    # Address Details(Phase 7, TC-PAGE-UI-034/035) - Playwright MCP 실측 확인 완료(위
+    # docstring "Phase 7 확장" 참고)
+    ADDRESS_DETAILS_HEADING = (
+        By.XPATH, "//h2[contains(@class, 'heading') and normalize-space(.)='Address Details']"
+    )
+    DELIVERY_ADDRESS = (By.ID, "address_delivery")
+    BILLING_ADDRESS = (By.ID, "address_invoice")
+
+    # Review Your Order / Total Amount(Phase 7, TC-PAGE-UI-036/037) - Playwright MCP
+    # 실측 확인 완료(위 docstring "Phase 7 확장" 참고)
+    REVIEW_ORDER_HEADING = (
+        By.XPATH,
+        "//h2[contains(@class, 'heading') and normalize-space(.)='Review Your Order']",
+    )
+    REVIEW_ORDER_TABLE = (By.CSS_SELECTOR, "table.table-condensed")
+    # [2026-09-01 pytest 실행 중 재현·확인] `tbody tr` 전체를 대상으로 하면 상품 행뿐 아니라
+    # 표 맨 마지막의 "Total Amount" 행(`<tr><td></td><td></td><td colspan="2">...</td>
+    # <td><p class="cart_total_price">...</p></td></tr>`, id 속성 없음)까지 포함되어 상품
+    # 개수가 실제보다 1개 많게 조회되는 현상이 확인되었다(예: 상품 1개를 담았는데 행 2개로
+    # 조회됨). 상품 행에만 존재하는 `id="product-{id}"` 속성으로 범위를 좁혀 Total Amount
+    # 행을 제외했다(Cart 페이지의 `#cart_info_table tbody tr`도 동일하게 `id="product-{id}"`
+    # 를 가짐을 실측으로 재확인).
+    REVIEW_ORDER_ROWS = (By.CSS_SELECTOR, "table.table-condensed tbody tr[id]")
+    REVIEW_ROW_IMAGE = (By.CSS_SELECTOR, ".cart_product img")
+    REVIEW_ROW_DESCRIPTION = (By.CSS_SELECTOR, ".cart_description")
+    REVIEW_ROW_PRICE = (By.CSS_SELECTOR, ".cart_price")
+    REVIEW_ROW_QUANTITY = (By.CSS_SELECTOR, ".cart_quantity")
+    REVIEW_ROW_TOTAL = (By.CSS_SELECTOR, ".cart_total")
+    TOTAL_AMOUNT = (
+        By.CSS_SELECTOR, "table.table-condensed tbody tr:last-child .cart_total_price"
+    )
+
+    # Place Order 버튼(Phase 7, TC-PAGE-UI-039) - Playwright MCP 실측 확인 완료
+    PLACE_ORDER_BUTTON = (By.CSS_SELECTOR, "a.check_out[href='/payment']")
 
     def is_login_required_modal_visible(self) -> bool:
         """로그인 요구 모달의 노출 여부를 반환한다."""
@@ -103,3 +168,71 @@ class CheckoutPage(BasePage):
         사용한다.
         """
         self.click(self.CONTINUE_ON_CART_BUTTON)
+
+    def is_address_details_heading_visible(self) -> bool:
+        """"Address Details" 섹션 제목의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-034)."""
+        return self.is_element_visible(self.ADDRESS_DETAILS_HEADING)
+
+    def is_delivery_address_visible(self) -> bool:
+        """"Your Delivery Address" 영역의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-034)."""
+        return self.is_element_visible(self.DELIVERY_ADDRESS)
+
+    def is_billing_address_visible(self) -> bool:
+        """"Your Billing Address" 영역의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-034)."""
+        return self.is_element_visible(self.BILLING_ADDRESS)
+
+    def get_delivery_address_text(self) -> str:
+        """"Your Delivery Address" 영역 전체 텍스트를 조회해 반환한다(Phase 7,
+        TC-PAGE-UI-035, Assertion 없음)."""
+        return self.get_text(self.DELIVERY_ADDRESS)
+
+    def get_billing_address_text(self) -> str:
+        """"Your Billing Address" 영역 전체 텍스트를 조회해 반환한다(Phase 7,
+        TC-PAGE-UI-035, Assertion 없음)."""
+        return self.get_text(self.BILLING_ADDRESS)
+
+    def is_review_order_heading_visible(self) -> bool:
+        """"Review Your Order" 섹션 제목의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-036)."""
+        return self.is_element_visible(self.REVIEW_ORDER_HEADING)
+
+    def get_review_order_row_count(self) -> int:
+        """"Review Your Order" 표의 상품 행 개수를 반환한다(Phase 7, Assertion 없음).
+
+        `driver.find_elements()`(복수형)는 대상이 없으면 즉시 빈 리스트를 반환하고
+        `WebDriverWait` 폴링을 하지 않는다(`CartPage.get_cart_row_count()`와 동일한
+        구현 패턴).
+        """
+        count = len(self.driver.find_elements(*self.REVIEW_ORDER_ROWS))
+        self.logger.debug("Review Your Order 표 행 개수 조회 완료: %s", count)
+        return count
+
+    def is_review_order_first_row_columns_visible(self) -> bool:
+        """"Review Your Order" 표 첫 번째 행의 5개 컬럼(Item/Description/Price/Quantity/
+        Total)이 모두 노출되는지 반환한다(Phase 7, TC-PAGE-UI-036).
+
+        모든 컬럼이 노출되는 경우에만 True를 반환한다.
+        """
+        row = self.find_element(self.REVIEW_ORDER_ROWS)
+        return (
+            bool(row.find_elements(*self.REVIEW_ROW_IMAGE))
+            and bool(row.find_elements(*self.REVIEW_ROW_DESCRIPTION))
+            and bool(row.find_elements(*self.REVIEW_ROW_PRICE))
+            and bool(row.find_elements(*self.REVIEW_ROW_QUANTITY))
+            and bool(row.find_elements(*self.REVIEW_ROW_TOTAL))
+        )
+
+    def is_total_amount_visible(self) -> bool:
+        """Total Amount(합계 금액)의 노출 여부를 반환한다(Phase 7, TC-PAGE-UI-037)."""
+        return self.is_element_visible(self.TOTAL_AMOUNT)
+
+    def get_total_amount_text(self) -> str:
+        """Total Amount(합계 금액) 텍스트를 조회해 반환한다(Phase 7, Assertion 없음)."""
+        return self.get_text(self.TOTAL_AMOUNT)
+
+    def is_place_order_button_visible(self) -> bool:
+        """"Place Order" 버튼의 노출 여부를 반환한다(Phase 7, TC-PAGE-UI-039)."""
+        return self.is_element_visible(self.PLACE_ORDER_BUTTON)

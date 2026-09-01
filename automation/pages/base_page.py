@@ -60,6 +60,12 @@ class BasePage:
     AD_OVERLAY_CLOSE_BUTTON = (By.XPATH, "//*[normalize-space(text())='Close']")
     # Close 요소가 존재함을 확인한 뒤 실제로 클릭 가능해지기까지 걸리는 짧은 대기 시간.
     AD_OVERLAY_DISMISS_TIMEOUT = 1.5
+    # [코드 리뷰 반영, Phase 7] Bootstrap collapse(아코디언) 등 클래스 토글 애니메이션이
+    # 끝나기를 기다리는 용도의 전용 타임아웃. 이전에는 광고 오버레이 감지용
+    # AD_OVERLAY_DISMISS_TIMEOUT(1.5초, 의미가 다른 상수)을 재사용했는데, 느린 환경(CI 등)
+    # 에서 트랜지션이 1.5초를 넘기면 광고 개입이 아닌데도 재클릭이 발동해 방금 펼친 메뉴를
+    # 다시 닫아버리는 회귀 위험이 있어 별도 상수로 분리했다.
+    CLASS_TOGGLE_TRANSITION_TIMEOUT = 3
 
     def __init__(self, driver: WebDriver):
         self.driver = driver
@@ -389,6 +395,96 @@ class BasePage:
                 "URL이 지정된 시간 내에 기대값과 일치하지 않음(Timeout): %s", url
             )
             raise
+
+    def wait_for_element_class_state(
+        self,
+        locator: tuple,
+        class_name: str,
+        should_contain: bool = True,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> None:
+        """지정한 요소의 `class` 속성에 `class_name` 포함 여부가 `should_contain`과 일치할
+        때까지 대기한다(Assertion 없음, Phase 7 추가).
+
+        Bootstrap collapse(아코디언)처럼 클래스 토글(`in` 클래스 추가/제거)로 애니메이션
+        완료 상태를 표현하는 컴포넌트에서, 단순 `is_element_visible()`(`offsetHeight > 0`
+        기준)만으로는 트랜지션이 아직 진행 중인 중간 상태를 "완료"로 오판할 수 있다(실측:
+        `HomePage`/`ProductsPage`의 CATEGORY 아코디언 pytest 실행 중, 트랜지션이 끝나기
+        전에 하위 메뉴 링크 텍스트를 읽어 빈 문자열이 반환되는 현상이 재현되었다). `class`
+        속성 값 자체를 폴링해 애니메이션이 실제로 끝난 시점을 결정적으로 판정한다.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: should_contain
+                == (
+                    class_name
+                    in (d.find_element(*locator).get_attribute("class") or "").split()
+                )
+            )
+            self.logger.debug(
+                "요소 class 상태 대기 완료: %s (class=%s, should_contain=%s)",
+                locator,
+                class_name,
+                should_contain,
+            )
+        except TimeoutException:
+            self.logger.error(
+                "요소의 class 상태가 지정된 시간 내에 기대값과 일치하지 않음(Timeout): "
+                "%s (class=%s, should_contain=%s)",
+                locator,
+                class_name,
+                should_contain,
+            )
+            raise
+
+    def click_and_wait_for_class_toggle(
+        self,
+        toggle_locator: tuple,
+        target_locator: tuple,
+        class_name: str = "in",
+        timeout: int = CLASS_TOGGLE_TRANSITION_TIMEOUT,
+    ) -> None:
+        """`toggle_locator` 요소를 클릭해 `target_locator` 요소의 `class_name` 포함 여부를
+        반전시킨다. 상태가 바뀌지 않으면(광고 개입 등으로 클릭이 무효화된 경우로 추정) 1회
+        재클릭한다(Phase 7 추가, `HomePage`/`ProductsPage`의 CATEGORY 아코디언
+        `click_category()`에 거의 동일하게 중복 구현돼 있던 로직을 통합
+        - AUTOMATION_GUIDE 19절 "2회 이상 반복되는 코드는 공통 메서드로 분리").
+
+        [실측 근거] `<a href="#Women">`처럼 실제 URL 해시를 변경하는 토글 링크는 클릭 직후
+        Google Vignette 전면 광고가 개입해 URL 해시가 `#google_vignette`로 바뀌며 실제
+        토글(jQuery data-api)이 트리거되지 않는 현상이 pytest 실행으로 재현되었다. 아코디언
+        토글은 페이지 이동 링크와 달리 멱등(idempotent)하지 않으므로(클릭마다 펼침/닫힘이
+        반전됨) `click_and_retry_if_vignette()`(URL 해시 기준 무조건 재클릭)를 그대로 쓰면
+        광고가 해시만 오염시키고 실제 토글은 이미 성공한 경우에도 무조건 재클릭되어 방금
+        바뀐 상태를 다시 되돌리는 회귀가 발생한다. 이에 따라 URL 해시가 아니라 대상 요소의
+        실제 class 상태가 클릭 전후로 바뀌었는지를 직접 확인해, 상태가 바뀌지 않은 경우에만
+        재클릭한다.
+
+        [코드 리뷰 반영] 대기 타임아웃은 광고 오버레이 감지용 `AD_OVERLAY_DISMISS_TIMEOUT`
+        (1.5초, 의미가 다른 상수)이 아니라 전용 상수 `CLASS_TOGGLE_TRANSITION_TIMEOUT`을
+        기본값으로 사용한다(느린 환경에서 트랜지션이 1.5초를 넘겨도 광고 개입으로 오판해
+        불필요하게 재클릭하지 않도록).
+        """
+        was_toggled = class_name in (
+            self.find_element(target_locator).get_attribute("class") or ""
+        ).split()
+        self.click(toggle_locator)
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: (
+                    class_name
+                    in (d.find_element(*target_locator).get_attribute("class") or "").split()
+                )
+                != was_toggled
+            )
+        except TimeoutException:
+            self.logger.warning(
+                "클릭 후에도 대상 요소의 class 상태가 바뀌지 않음(광고 개입으로 추정) - "
+                "재클릭 시도: %s",
+                toggle_locator,
+            )
+            self.click(toggle_locator)
+        self.logger.info("class 토글 클릭 완료: %s", toggle_locator)
 
     def wait_for_url_contains(self, text: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """URL에 지정한 문자열이 포함될 때까지 대기한다.

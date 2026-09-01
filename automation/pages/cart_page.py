@@ -84,6 +84,20 @@ Phase 5 확장(장바구니 목록/삭제/빈 카트/Proceed To Checkout, Playwr
   분기하는) 요소이며, `.check_out` 클래스가 페이지 전체 기준 1개로 고유함을 확인했다(6.1절
   4순위). 로그인 상태에서 클릭 시 실제로 `/checkout`으로 페이지 전체 이동이 발생하므로(TC-CART-011),
   다른 페이지 이동 링크와 동일하게 `click_and_retry_if_vignette()`를 사용한다.
+
+Phase 7 확장(상품 목록 표 컬럼/빈 카트 링크, Playwright MCP 실측, 2026-09-01,
+https://automationexercise.com/view_cart, 상품 1개 담긴 상태 - 5.4절 "MCP 브라우저와 실제
+테스트(Selenium) 환경이 다르게 동작함" 관련 참고: 이번 세션의 MCP 브라우저에 예상치 못한
+기존 로그인 세션/장바구니 데이터가 남아있어 이를 그대로 조회만 하고 활용했다,
+`pages/home_page.py` docstring "예상치 못한 관찰 사항" 참고):
+- 장바구니 행(TC-PAGE-UI-021) 내부에 `.cart_product img`(이미지, 행 스코프 1개)/
+  `.cart_description p`(상품명 아래 카테고리 경로, 예: "Women > Tops", 행 스코프 1개)가
+  각각 고유하게 존재함을 확인했다(기존 `ROW_PRODUCT_NAME`은 `.cart_description h4 a`로
+  상품명만 조회, 카테고리 경로는 별도 `<p>`).
+- 빈 카트 안내(TC-PAGE-UI-019) 내부의 "here" 링크는 `#empty_cart a`(페이지 전체 기준 1개,
+  `href="/products"`, 텍스트 "here")로 고유하게 식별된다.
+- "Proceed To Checkout" 버튼(TC-PAGE-UI-020) 노출 여부는 기존 `PROCEED_TO_CHECKOUT_BUTTON`
+  Locator를 그대로 재사용해 `is_element_visible()`로 조회한다(신규 Locator 불필요).
 """
 
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -136,6 +150,13 @@ class CartPage(BasePage):
     ROW_QUANTITY = (By.CSS_SELECTOR, ".cart_quantity button")
     ROW_TOTAL = (By.CSS_SELECTOR, ".cart_total p")
     ROW_DELETE_BUTTON = (By.CSS_SELECTOR, ".cart_quantity_delete")
+    # 상품 목록 표 컬럼(Phase 7, TC-PAGE-UI-021) - Playwright MCP 실측 확인 완료(위
+    # docstring "Phase 7 확장" 참고)
+    ROW_IMAGE = (By.CSS_SELECTOR, ".cart_product img")
+    ROW_CATEGORY_PATH = (By.CSS_SELECTOR, ".cart_description p")
+
+    # 빈 카트 안내 "here" 링크(Phase 7, TC-PAGE-UI-019) - Playwright MCP 실측 확인 완료
+    EMPTY_CART_LINK = (By.CSS_SELECTOR, "#empty_cart a")
 
     def navigate(self) -> None:
         """Cart 페이지(/view_cart)로 이동한다."""
@@ -279,3 +300,39 @@ class CartPage(BasePage):
         없이 로그인 요구 모달(`CheckoutPage`)이 노출된다.
         """
         self.click_and_retry_if_vignette(self.PROCEED_TO_CHECKOUT_BUTTON)
+
+    def is_proceed_to_checkout_button_visible(self) -> bool:
+        """"Proceed To Checkout" 버튼의 노출 여부를 반환한다(Phase 7, TC-PAGE-UI-020)."""
+        return self.is_element_visible(self.PROCEED_TO_CHECKOUT_BUTTON)
+
+    def is_row_image_visible(self, product_name: str) -> bool:
+        """상품명으로 장바구니 행을 찾아 이미지의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-021)."""
+        row = self._find_row_by_product_name(product_name)
+        elements = row.find_elements(*self.ROW_IMAGE)
+        return bool(elements) and elements[0].is_displayed()
+
+    def get_category_path_by_product_name(self, product_name: str) -> str:
+        """상품명으로 장바구니 행을 찾아 카테고리 경로(예: "Women > Tops") 텍스트를 조회해
+        반환한다(Phase 7, TC-PAGE-UI-021, Assertion 없음)."""
+        row = self._find_row_by_product_name(product_name)
+        category_path = row.find_element(*self.ROW_CATEGORY_PATH).text.strip()
+        self.logger.debug("'%s' 상품 카테고리 경로 조회 완료: %s", product_name, category_path)
+        return category_path
+
+    def is_delete_button_visible_by_product_name(self, product_name: str) -> bool:
+        """상품명으로 장바구니 행을 찾아 삭제(x) 버튼의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-021)."""
+        row = self._find_row_by_product_name(product_name)
+        elements = row.find_elements(*self.ROW_DELETE_BUTTON)
+        return bool(elements) and elements[0].is_displayed()
+
+    def is_empty_cart_link_visible(self) -> bool:
+        """빈 카트 안내 문구 내 "here" 링크의 노출 여부를 반환한다(Phase 7,
+        TC-PAGE-UI-019)."""
+        return self.is_element_visible(self.EMPTY_CART_LINK)
+
+    def get_empty_cart_link_text(self) -> str:
+        """빈 카트 안내 문구 내 "here" 링크 텍스트를 조회해 반환한다(Phase 7,
+        TC-PAGE-UI-019, Assertion 없음)."""
+        return self.get_text(self.EMPTY_CART_LINK)

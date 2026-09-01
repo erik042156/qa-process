@@ -102,13 +102,22 @@ https://automationexercise.com/products, 로그아웃 상태):
   확인했다(가격 불일치 없음, 상품명은 공백 개수만 다름 - `find_card_index_by_product_name()`이
   비교 시 공백을 정규화해 처리한다). `.features_items .col-sm-4`에서 34개 카드 중 3번째
   (index=2, `data-product-id="3"`)로 확인됐다.
+
+Phase 7 확장(CATEGORY 아코디언, Playwright MCP 실측, 2026-09-01,
+https://automationexercise.com/products, 로그아웃 상태):
+- 좌측 사이드바의 `#accordian`/`.panel-heading a`/`.panel-collapse` 구조가 `home_page.py`가
+  실측한 Home 페이지 구조와 완전히 동일함을 재확인했다(`document.querySelectorAll('#accordian')
+  .length === 1`, `.panel-heading a[data-toggle="collapse"][data-parent="#accordian"]`가
+  3개). Home 페이지와 별개 Page 클래스이므로(화면 단위 1 Page 클래스 원칙) 동일한 Locator/
+  메서드를 이 클래스에도 독립적으로 정의한다(`home_page.py` "Phase 7 확장" docstring 참고,
+  동일한 실측 근거 재사용).
 """
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
-from config.settings import BASE_URL
+from config.settings import BASE_URL, DEFAULT_TIMEOUT
 from pages.base_page import BasePage
 from utils.text import normalize_whitespace
 
@@ -162,6 +171,21 @@ class ProductsPage(BasePage):
     # 참고) .productinfo 하위로 범위를 좁혀 고유화했다.
     PRODUCT_CARD_ADD_TO_CART = (By.CSS_SELECTOR, ".productinfo .add-to-cart")
     PRODUCT_CARD_VIEW_PRODUCT = (By.CSS_SELECTOR, ".choose a")
+
+    # CATEGORY 아코디언(Phase 7, TC-PAGE-UI-032/033) - Playwright MCP 실측 확인 완료
+    # (위 docstring "Phase 7 확장" 참고, home_page.py와 동일값)
+    CATEGORY_HEADING_WOMEN = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Women']")
+    CATEGORY_HEADING_MEN = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Men']")
+    CATEGORY_HEADING_KIDS = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Kids']")
+    CATEGORY_SUBMENU_WOMEN = (By.ID, "Women")
+    CATEGORY_SUBMENU_MEN = (By.ID, "Men")
+    CATEGORY_SUBMENU_KIDS = (By.ID, "Kids")
+
+    _CATEGORY_LOCATORS = {
+        "WOMEN": (CATEGORY_HEADING_WOMEN, CATEGORY_SUBMENU_WOMEN),
+        "MEN": (CATEGORY_HEADING_MEN, CATEGORY_SUBMENU_MEN),
+        "KIDS": (CATEGORY_HEADING_KIDS, CATEGORY_SUBMENU_KIDS),
+    }
 
     def navigate(self) -> None:
         """Products 페이지(/products)로 이동한다."""
@@ -359,3 +383,57 @@ class ProductsPage(BasePage):
             names,
         )
         raise ValueError(f"상품명과 일치하는 카드를 찾을 수 없음: {product_name}")
+
+    def click_category(self, category_name: str) -> None:
+        """CATEGORY 아코디언에서 지정한 카테고리(WOMEN/MEN/KIDS)의 헤딩을 클릭해 하위 메뉴를
+        펼치거나 접는다(TC-PAGE-UI-032/033, `home_page.py`와 동일한 구현 패턴).
+
+        [코드 리뷰 반영] 클릭+재클릭 로직은 `home_page.py`의 `click_category()`와 거의
+        동일하게 중복 구현돼 있었으므로 `BasePage.click_and_wait_for_class_toggle()`로
+        통합했다(실측 근거·회귀 경위는 해당 메서드 docstring 참고 - Google Vignette 광고
+        개입, 아코디언 토글의 비멱등성 등).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            heading_locator, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        self.click_and_wait_for_class_toggle(heading_locator, submenu_locator)
+        self.logger.info("CATEGORY 아코디언 '%s' 헤딩 클릭 완료", category_name)
+
+    def is_category_submenu_expanded(self, category_name: str) -> bool:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴가 펼쳐진 상태인지 즉시 조회해 반환한다
+        (TC-PAGE-UI-032/033, Assertion 없음, `home_page.py`와 동일한 구현/판단 근거 -
+        Bootstrap collapse의 `in` 클래스로 판정, 트랜지션 도중 상태를 대기하려면
+        `wait_for_category_submenu_state()`를 먼저 호출해야 함).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        element = self.find_element(submenu_locator)
+        return "in" in (element.get_attribute("class") or "").split()
+
+    def wait_for_category_submenu_state(
+        self, category_name: str, expanded: bool, timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴가 `expanded` 상태(펼침/닫힘)가 될
+        때까지 대기한다(TC-PAGE-UI-032/033, Assertion 없음, `home_page.py`와 동일한
+        구현 패턴).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        self.wait_for_element_class_state(submenu_locator, "in", expanded, timeout)

@@ -80,12 +80,56 @@ https://automationexercise.com/, 로그아웃 상태):
   `document.querySelectorAll(...).length === 34`로 확인했고(카드당 1개), 첫 번째 카드의
   `href="/product_details/1"`, 텍스트 "View Product"임을 확인했다(`products_page.py`의
   `PRODUCT_CARD_VIEW_PRODUCT`와 동일한 마크업 패턴).
+
+Phase 7 확장(카드 상세 Locator/RECOMMENDED ITEMS 캐러셀/CATEGORY 아코디언, Playwright MCP
+실측, 2026-09-01, https://automationexercise.com/, 로그아웃 상태 - 단, 이 세션의 MCP
+브라우저에 예상치 못한 기존 로그인 세션이 남아있었음이 확인됨, 아래 "예상치 못한 관찰
+사항" 참고):
+- 상품 카드 상세(TC-PAGE-UI-006): `.productinfo h2`(가격, 예: "Rs. 500")/`.productinfo
+  img`(이미지)가 `products_page.py`의 `PRODUCT_CARD_PRICE`/`PRODUCT_CARD_IMAGE`와 완전히
+  동일한 마크업임을 확인했다(카드 첫 번째 index 기준 재확인). 카드 컨테이너
+  (`.features_items .col-sm-4`)가 Bootstrap `col-sm-4`(12칸 그리드 중 4칸 = 한 행 3개)
+  클래스를 그대로 사용함을 `className` 조회로 재확인해, 한 행 3개 그리드 배치를
+  코드로 판정하는 근거로 `col-sm-4` 클래스 포함 여부를 사용한다.
+- RECOMMENDED ITEMS 캐러셀(TC-PAGE-UI-009): 컨테이너 `.recommended_items` 하위에 슬라이드
+  단위 `.item`이 2개 존재하고 그중 현재 노출 중인 슬라이드만 `.item.active` 클래스를 가짐을
+  확인했다(`document.querySelectorAll('.recommended_items .item.active').length === 1`).
+  활성 슬라이드의 첫 상품명은 `.recommended_items .item.active .productinfo p`로 고유하게
+  조회된다(현재 값 "Blue Top"). 다음 화살표 `a.right.recommended-item-control`이 페이지
+  전체 기준 1개(고유)임을 재확인했다(기존 RECOMMENDED_ITEMS 관련 Locator 부재 상태에서
+  신규 추가).
+- CATEGORY 아코디언(TC-PAGE-UI-023/024): 컨테이너 `#accordian` 하위 `.panel-heading a`가
+  `data-toggle="collapse"`, `data-parent="#accordian"`, `href="#Women"`/`"#Men"`/`"#Kids"`
+  속성을 가지며 각각 페이지 전체 기준 1개로 고유함을 확인했다. 하위 메뉴 펼침 상태는 대응하는
+  `.panel-collapse`(`id="Women"`/`"Men"`/`"Kids"`, 각각 페이지 전체 기준 1개)로 확인하며,
+  실제 클릭(JavaScript 순수 DOM 이벤트, 계정/주문 등 서비스 데이터 변경이 아닌 클라이언트
+  UI 상태 전환이라 AUTOMATION_GUIDE 5.3절 "서비스 데이터 변경" 금지 대상이 아님)으로
+  "Women" 클릭 시 `#Women`이 `class="panel-collapse in"`(`offsetHeight > 0`, 하위 메뉴
+  "Dress/Tops/Saree" 노출)로 전환되고, 이어서 "Men" 클릭 시 `#Women`은 다시
+  `offsetHeight === 0`(닫힘)으로, `#Men`은 `class="panel-collapse in"`(하위 메뉴
+  "Tshirts/Jeans" 노출)로 전환됨을 실측으로 확인했다 — `data-parent` 속성이 문서화하는
+  Bootstrap 단일 오픈(accordion) 동작이 실제로도 그대로 재현됨을 확인했다.
+
+**예상치 못한 관찰 사항(2026-09-01, 사용자 보고 필요)**: 이번 Phase 7 탐색 세션에서
+`browser_navigate`로 `/checkout`, `/view_cart`에 접근했을 때 로그인/로그아웃 조작을 전혀
+수행하지 않았음에도 이미 로그인 상태(`a[href='/logout']` 존재, Address Details에 이전에
+입력된 것으로 보이는 이름/주소 값 노출, 장바구니에 상품 1개 존재)임이 확인되었다. 이는 이
+Playwright MCP 브라우저 프로파일에 이전 세션(에이전트 작업 또는 사용자 수동 작업)의
+쿠키/로그인 상태가 남아있었기 때문으로 추정되며, 이번 탐색 작업이 스스로 로그인하거나
+장바구니에 상품을 추가한 것이 아니다(순수 조회만 수행). 실제 개인정보가 아닌 테스트용
+더미 값으로 보이나(예: "퍼넴테스트1"), Playwright MCP 브라우저 세션이 기대와 달리 상태를
+유지하고 있다는 사실 자체는 사용자에게 보고할 필요가 있다고 판단했다.
 """
 
+import re
+from urllib.parse import unquote
+
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.ui import WebDriverWait
 
-from config.settings import BASE_URL
+from config.settings import BASE_URL, DEFAULT_TIMEOUT
 from pages.base_page import BasePage
 
 
@@ -130,6 +174,45 @@ class HomePage(BasePage):
     # "View Product" 링크(Phase 6) - Playwright MCP 실측 확인 완료(위 docstring "Phase 6
     # 확장" 참고, products_page.py의 PRODUCT_CARD_VIEW_PRODUCT와 동일한 실측 근거)
     PRODUCT_CARD_VIEW_PRODUCT = (By.CSS_SELECTOR, ".choose a")
+
+    # 상품 카드 상세(Phase 7, TC-PAGE-UI-006) - Playwright MCP 실측 확인 완료(위 docstring
+    # "Phase 7 확장" 참고, products_page.py의 PRODUCT_CARD_PRICE/PRODUCT_CARD_IMAGE와 동일값)
+    PRODUCT_CARD_PRICE = (By.CSS_SELECTOR, ".productinfo h2")
+    PRODUCT_CARD_IMAGE = (By.CSS_SELECTOR, ".productinfo img")
+
+    # RECOMMENDED ITEMS 캐러셀(Phase 7, TC-PAGE-UI-009) - Playwright MCP 실측 확인 완료
+    # (위 docstring "Phase 7 확장" 참고)
+    RECOMMENDED_ITEMS_ACTIVE_NAME = (
+        By.CSS_SELECTOR,
+        ".recommended_items .item.active .productinfo p",
+    )
+    RECOMMENDED_ITEMS_NEXT_ARROW = (By.CSS_SELECTOR, "a.right.recommended-item-control")
+
+    # CATEGORY 아코디언(Phase 7, TC-PAGE-UI-023/024) - Playwright MCP 실측 확인 완료
+    # (위 docstring "Phase 7 확장" 참고). 3개 카테고리로 범위가 고정되어 있어(사이트 자체
+    # 구조상 WOMEN/MEN/KIDS 3개뿐) 카테고리별로 개별 상수를 정의한다(6.2절 "메서드 내부에
+    # Locator를 하드코딩하지 않는다" 원칙에 따라 클래스 상단 상수로 유지).
+    CATEGORY_HEADING_WOMEN = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Women']")
+    CATEGORY_HEADING_MEN = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Men']")
+    CATEGORY_HEADING_KIDS = (By.CSS_SELECTOR, "#accordian .panel-heading a[href='#Kids']")
+    CATEGORY_SUBMENU_WOMEN = (By.ID, "Women")
+    CATEGORY_SUBMENU_MEN = (By.ID, "Men")
+    CATEGORY_SUBMENU_KIDS = (By.ID, "Kids")
+    CATEGORY_SUBMENU_LINKS = (By.CSS_SELECTOR, "ul li a")
+
+    # 카테고리명(대문자 표기, TC 문서 표기와 동일) -> (헤딩 Locator, 하위 메뉴 Locator) 매핑.
+    # 클래스 상단에 정의된 Locator 상수만 참조하며 메서드 내부에서 새 Locator를 만들지 않는다.
+    _CATEGORY_LOCATORS = {
+        "WOMEN": (CATEGORY_HEADING_WOMEN, CATEGORY_SUBMENU_WOMEN),
+        "MEN": (CATEGORY_HEADING_MEN, CATEGORY_SUBMENU_MEN),
+        "KIDS": (CATEGORY_HEADING_KIDS, CATEGORY_SUBMENU_KIDS),
+    }
+
+    # BRANDS 목록(Phase 7, TC-PAGE-UI-026/028/030/031) - Playwright MCP 실측 확인 완료
+    # (위 docstring "Phase 7 확장" 참고). 컨테이너 `.brands_products`가 페이지 전체 기준
+    # 1개이며, 하위 `ul li a` 8개가 각 브랜드 링크(텍스트 "(6)Polo" 형태, 괄호 개수 접두사와
+    # 브랜드명이 공백 없이 붙어있음)에 정확히 대응함을 확인했다.
+    BRAND_LINKS = (By.CSS_SELECTOR, ".brands_products ul li a")
 
     def navigate(self) -> None:
         """Home 페이지(루트 URL)로 이동한다."""
@@ -289,3 +372,313 @@ class HomePage(BasePage):
 
         self.click_and_retry_if_vignette_action(_click)
         self.logger.info("%s번째 상품 카드의 'View Product' 클릭 완료", index)
+
+    def get_product_card_count(self) -> int:
+        """노출된 상품 카드 개수를 반환한다(Assertion 없음, Phase 7 추가).
+
+        `driver.find_elements()`(복수형)는 대상이 없으면 즉시 빈 리스트를 반환하고
+        `WebDriverWait` 폴링을 하지 않는다(`ProductsPage.get_product_card_count()`와
+        동일한 구현 패턴).
+        """
+        self.find_element(self.PRODUCT_CARDS)
+        count = len(self.driver.find_elements(*self.PRODUCT_CARDS))
+        self.logger.debug("Home 상품 카드 개수 조회 완료: %s", count)
+        return count
+
+    def is_cards_in_three_column_grid(self) -> bool:
+        """노출된 모든 상품 카드가 Bootstrap 3열 그리드 클래스(`col-sm-4`, 12칸 중 4칸 = 한
+        행 3개)를 갖는지 반환한다(TC-PAGE-UI-006, Assertion 없음).
+
+        스크린샷 픽셀 비교나 `getBoundingClientRect()` 기반 좌표 계산 대신, 위 docstring
+        "Phase 7 확장"에서 실측 확인한 Bootstrap 그리드 클래스(`col-sm-4`) 포함 여부로
+        "한 행 3개 배치"를 판정한다(Bootstrap 12칸 그리드 표준상 `col-sm-4`는 항상 3개씩
+        줄바꿈되므로 결정적인 판정 기준이다).
+        """
+        self.find_element(self.PRODUCT_CARDS)
+        cards = self.driver.find_elements(*self.PRODUCT_CARDS)
+        return bool(cards) and all("col-sm-4" in card.get_attribute("class") for card in cards)
+
+    def get_product_price_on_card(self, index: int) -> str:
+        """index번째 카드 내부 가격 텍스트를 조회해 반환한다(Assertion 없음, Phase 7 추가)."""
+        card = self._get_card_element(index)
+        price = card.find_element(*self.PRODUCT_CARD_PRICE).text.strip()
+        self.logger.debug("Home %s번째 카드 가격 조회 완료: %s", index, price)
+        return price
+
+    def is_image_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 상품 이미지의 노출 여부를 반환한다(Phase 7 추가)."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_IMAGE)
+        return bool(elements) and elements[0].is_displayed()
+
+    def is_add_to_cart_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 "Add to cart" 버튼의 노출 여부를 반환한다(Phase 7 추가)."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_ADD_TO_CART)
+        return bool(elements) and elements[0].is_displayed()
+
+    def is_view_product_visible_on_card(self, index: int) -> bool:
+        """index번째 카드 내부 "View Product" 링크의 노출 여부를 반환한다(Phase 7 추가)."""
+        card = self._get_card_element(index)
+        elements = card.find_elements(*self.PRODUCT_CARD_VIEW_PRODUCT)
+        return bool(elements) and elements[0].is_displayed()
+
+    def get_recommended_item_active_name(self) -> str:
+        """RECOMMENDED ITEMS 캐러셀에서 현재 활성 슬라이드의 첫 상품명을 조회해 반환한다
+        (TC-PAGE-UI-009, Assertion 없음).
+
+        [코드 리뷰 반영] `BasePage.get_text()`는 앞뒤 공백을 제거하지 않으므로, DOM
+        텍스트 노드의 들여쓰기로 인한 공백까지 그대로 반환될 수 있다. 이 값을
+        `wait_for_recommended_item_active_name_change()`의 `previous_name` 비교 기준으로
+        사용하므로, 실제 상품명(의미 있는 텍스트)만 비교하도록 `strip()`으로 정규화한다.
+        """
+        return self.get_text(self.RECOMMENDED_ITEMS_ACTIVE_NAME).strip()
+
+    def click_recommended_items_next(self) -> None:
+        """RECOMMENDED ITEMS 캐러셀의 다음(오른쪽) 화살표를 클릭한다(TC-PAGE-UI-009).
+
+        캐러셀 슬라이드 전환은 페이지 이동을 트리거하지 않으므로 일반 `click()`을 사용한다.
+        """
+        self.click(self.RECOMMENDED_ITEMS_NEXT_ARROW)
+
+    def wait_for_recommended_item_active_name_change(
+        self, previous_name: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str:
+        """활성 슬라이드의 상품명이 `previous_name`과 달라질 때까지 대기한 뒤 새 값을
+        반환한다(TC-PAGE-UI-009, Assertion 없음).
+
+        캐러셀 슬라이드 전환에는 CSS 트랜지션 시간이 있어(위 docstring 참고), 클릭 직후
+        곧바로 조회하면 아직 전환되지 않은 상태를 읽을 수 있다(Flaky 원인).
+        `CartPage.wait_for_cart_row_count()`와 동일한 구현 패턴(`WebDriverWait` + 커스텀
+        조건)으로 명시적으로 대기한다.
+
+        [코드 리뷰 반영] `previous_name`은 `get_recommended_item_active_name()`이 반환한
+        strip된 값이므로, 폴링 중 새로 읽는 값도 동일하게 `strip()`해 비교해야 한다(한쪽만
+        strip하면 우연히 앞뒤 공백이 있는 DOM 텍스트에서 실제 변경 여부를 잘못 판정할 수
+        있음 - 실측 결과 `RECOMMENDED_ITEMS_ACTIVE_NAME` 텍스트 노드에 실제로 들여쓰기
+        공백이 포함되어 있어, 양쪽 다 strip하지 않으면 테스트가 실패함을 재현으로 확인).
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: d.find_element(*self.RECOMMENDED_ITEMS_ACTIVE_NAME).text.strip()
+                != previous_name
+            )
+        except TimeoutException:
+            self.logger.error(
+                "RECOMMENDED ITEMS 활성 상품명이 지정된 시간 내에 변경되지 않음(Timeout)"
+            )
+            raise
+        new_name = self.get_recommended_item_active_name()
+        self.logger.debug("RECOMMENDED ITEMS 활성 상품명 변경 확인 완료: %s", new_name)
+        return new_name
+
+    def click_category(self, category_name: str) -> None:
+        """CATEGORY 아코디언에서 지정한 카테고리(WOMEN/MEN/KIDS)의 헤딩을 클릭해 하위 메뉴를
+        펼치거나 접는다(TC-PAGE-UI-023/024).
+
+        [코드 리뷰 반영] 클릭+재클릭 로직은 `ProductsPage.click_category()`와 거의 동일하게
+        중복 구현돼 있었으므로 `BasePage.click_and_wait_for_class_toggle()`로 통합했다
+        (실측 근거·회귀 경위는 해당 메서드 docstring 참고 - Google Vignette 광고 개입,
+        아코디언 토글의 비멱등성 등).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            heading_locator, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        self.click_and_wait_for_class_toggle(heading_locator, submenu_locator)
+        self.logger.info("CATEGORY 아코디언 '%s' 헤딩 클릭 완료", category_name)
+
+    def is_category_submenu_expanded(self, category_name: str) -> bool:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴가 펼쳐진 상태인지 즉시 조회해 반환한다
+        (TC-PAGE-UI-023/024, Assertion 없음).
+
+        [2026-09-01 pytest 실행 중 재현·확인한 결함] 최초 구현은 `is_element_visible()`
+        (`offsetHeight > 0` 기준)을 사용했는데, Bootstrap collapse 트랜지션이 아직 진행
+        중인 중간 상태(`offsetHeight`가 0보다는 크지만 최종값에 도달하지 못한 상태)를
+        "펼쳐짐"으로 오판해, 바로 이어 하위 메뉴 링크 텍스트를 조회하면 빈 문자열이
+        반환되는 현상이 재현되었다. Bootstrap이 트랜지션 완료 시점에만 최종적으로 추가하는
+        `in` 클래스를 직접 확인하는 방식으로 수정했다(더 결정적인 판정 기준, 위
+        `wait_for_category_submenu_state()` docstring 참고). 클릭 직후 애니메이션이 아직
+        끝나지 않은 시점에는 `wait_for_category_submenu_state()`로 먼저 대기해야 한다.
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        element = self.find_element(submenu_locator)
+        return "in" in (element.get_attribute("class") or "").split()
+
+    def wait_for_category_submenu_state(
+        self, category_name: str, expanded: bool, timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴가 `expanded` 상태(펼침/닫힘)가 될
+        때까지 대기한다(TC-PAGE-UI-023/024, Assertion 없음).
+
+        `BasePage.wait_for_element_class_state()`로 Bootstrap collapse의 `in` 클래스
+        토글 완료를 폴링한다(위 `is_category_submenu_expanded()` docstring "재현·확인한
+        결함" 참고).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        self.wait_for_element_class_state(submenu_locator, "in", expanded, timeout)
+
+    def get_category_submenu_link_texts(self, category_name: str) -> list[str]:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴 링크 텍스트 목록을 순서대로 반환한다
+        (TC-PAGE-UI-023, Assertion 없음).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        submenu = self.find_element(submenu_locator)
+        links = submenu.find_elements(*self.CATEGORY_SUBMENU_LINKS)
+        texts = [link.text.strip() for link in links]
+        self.logger.debug("'%s' 카테고리 하위 메뉴 텍스트 조회 완료: %s", category_name, texts)
+        return texts
+
+    def get_category_submenu_links(self, category_name: str) -> list[tuple[str, int]]:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴 (텍스트, 카테고리 id) 튜플 목록을
+        순서대로 반환한다(TC-PAGE-UI-031, Assertion 없음).
+
+        각 하위 메뉴 링크의 `href="/category_products/{id}"`에서 id를 추출한다(위 파일
+        docstring "Phase 7 확장" 실측 근거 - Women: Dress=1/Tops=2/Saree=7, Men:
+        Tshirts=3/Jeans=6, Kids: Dress=4/Tops & Shirts=5. 다만 이 메서드는 하드코딩된 id에
+        의존하지 않고 매번 실제 DOM에서 추출한다).
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+        submenu = self.find_element(submenu_locator)
+        links = submenu.find_elements(*self.CATEGORY_SUBMENU_LINKS)
+        result = []
+        for link in links:
+            href = link.get_attribute("href")
+            match = re.search(r"/category_products/(\d+)", href)
+            if match:
+                result.append((link.text.strip(), int(match.group(1))))
+            else:
+                self.logger.warning("카테고리 하위 메뉴 href에서 id를 추출하지 못함: %s", href)
+        self.logger.debug("'%s' 카테고리 하위 메뉴 (텍스트, id) 목록 조회 완료: %s", category_name, result)
+        return result
+
+    def click_category_submenu_link(self, category_name: str, link_text: str) -> None:
+        """지정한 카테고리(WOMEN/MEN/KIDS)의 하위 메뉴 중 텍스트가 일치하는 링크를 클릭해
+        해당 카테고리 상품 목록 페이지(`/category_products/{id}`)로 이동한다
+        (TC-PAGE-UI-025/029).
+
+        실제 페이지 전체 이동(`<a href="/category_products/{id}">`)을 트리거하므로
+        `click_and_retry_if_vignette_action()`을 사용한다(다른 페이지 이동 링크와 동일한
+        방어 패턴). 하위 메뉴가 아직 펼쳐지지 않은 상태라면 먼저 `click_category()`로
+        펼친 뒤 호출해야 한다.
+
+        Raises:
+            KeyError: 지원하지 않는 카테고리명인 경우(원인을 로깅한 뒤 재전파).
+            NoSuchElementException: 하위 메뉴에 일치하는 텍스트의 링크가 없는 경우(원인을
+                로깅한 뒤 재전파).
+        """
+        try:
+            _, submenu_locator = self._CATEGORY_LOCATORS[category_name]
+        except KeyError:
+            self.logger.error("지원하지 않는 카테고리명: %s", category_name)
+            raise
+
+        def _click() -> None:
+            submenu = self.find_element(submenu_locator)
+            links = submenu.find_elements(*self.CATEGORY_SUBMENU_LINKS)
+            for link in links:
+                if link.text.strip() == link_text:
+                    self.click_element(link)
+                    return
+            self.logger.error(
+                "'%s' 카테고리 하위 메뉴에서 '%s' 링크를 찾을 수 없음", category_name, link_text
+            )
+            raise NoSuchElementException(
+                f"'{category_name}' 카테고리 하위 메뉴에서 '{link_text}' 링크를 찾을 수 없음"
+            )
+
+        self.click_and_retry_if_vignette_action(_click)
+        self.logger.info(
+            "'%s' 카테고리 하위 메뉴 '%s' 링크 클릭 완료", category_name, link_text
+        )
+
+    def click_brand(self, brand_name: str) -> None:
+        """BRANDS 목록에서 브랜드명(괄호 개수 접두사 제외, 예: "H&M")이 일치하는 링크를
+        클릭해 해당 브랜드 상품 목록 페이지(`/brand_products/{브랜드명}`)로 이동한다
+        (TC-PAGE-UI-026/030).
+
+        브랜드 링크 텍스트는 `"(6)Polo"`처럼 괄호 개수 접두사와 브랜드명이 공백 없이
+        붙어있어(위 docstring 참고), `endswith(brand_name)`로 접두사를 제외한 브랜드명만
+        비교한다. 실제 페이지 전체 이동을 트리거하므로
+        `click_and_retry_if_vignette_action()`을 사용한다.
+
+        Raises:
+            NoSuchElementException: BRANDS 목록에 일치하는 브랜드명이 없는 경우(원인을
+                로깅한 뒤 재전파).
+        """
+
+        def _click() -> None:
+            links = self.driver.find_elements(*self.BRAND_LINKS)
+            for link in links:
+                if link.text.strip().endswith(brand_name):
+                    self.click_element(link)
+                    return
+            self.logger.error("BRANDS 목록에서 '%s' 브랜드를 찾을 수 없음", brand_name)
+            raise NoSuchElementException(f"BRANDS 목록에서 '{brand_name}' 브랜드를 찾을 수 없음")
+
+        self.find_element(self.BRAND_LINKS)
+        self.click_and_retry_if_vignette_action(_click)
+        self.logger.info("BRANDS 목록 '%s' 링크 클릭 완료", brand_name)
+
+    def get_brand_link_texts(self) -> list[str]:
+        """BRANDS 목록의 전체 링크 텍스트(예: "(6)Polo")를 순서대로 반환한다
+        (TC-PAGE-UI-028/031, Assertion 없음)."""
+        self.find_element(self.BRAND_LINKS)
+        elements = self.driver.find_elements(*self.BRAND_LINKS)
+        texts = [element.text.strip() for element in elements]
+        self.logger.debug("BRANDS 목록 텍스트 조회 완료: %s", texts)
+        return texts
+
+    def get_brand_names_from_href(self) -> list[str]:
+        """BRANDS 목록 링크의 `href` 속성에서 원본 대소문자 그대로의 브랜드명 목록을
+        순서대로 추출해 반환한다(TC-PAGE-UI-031, Assertion 없음).
+
+        [2026-09-01 pytest 실행 중 재현·확인한 결함] 브랜드명 텍스트는 CSS
+        `text-transform: uppercase`로 렌더링되어 `get_brand_link_texts()`가 반환하는 값은
+        항상 대문자(예: "POLO")이다. `BrandProductsPage.navigate()`로 이 대문자 값을 그대로
+        사용해 직접 URL 이동을 시도하면 실제 사이트가 원본 대소문자(예: "Polo")만 유효한
+        브랜드로 인식해 상품이 0개로 조회되는 현상이 pytest 실행으로 재현되었다. `href`
+        속성(`/brand_products/{원본 대소문자 브랜드명}`)은 CSS 렌더링과 무관하게 원본 값을
+        그대로 담고 있어, 이 메서드로 대소문자가 보존된 정확한 브랜드명을 얻는다.
+        """
+        self.find_element(self.BRAND_LINKS)
+        elements = self.driver.find_elements(*self.BRAND_LINKS)
+        names = []
+        for element in elements:
+            href = element.get_attribute("href")
+            name = unquote(href.rsplit("/brand_products/", 1)[-1])
+            names.append(name)
+        self.logger.debug("BRANDS 목록 href 기반 브랜드명 조회 완료: %s", names)
+        return names
