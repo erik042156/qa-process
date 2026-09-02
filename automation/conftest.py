@@ -11,11 +11,13 @@ Screenshot/Artifact 원칙
 
 import datetime
 import logging
+import os
 from pathlib import Path
 
 import pytest
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
+from selenium.webdriver.chrome.options import Options
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,26 @@ _SCREENSHOTS_DIR = Path(__file__).resolve().parent / "screenshots"
 
 @pytest.fixture(scope="function")
 def driver():
-    """테스트마다 새로 생성/종료되는 Chrome WebDriver fixture."""
-    driver = webdriver.Chrome()
-    driver.maximize_window()
+    """테스트마다 새로 생성/종료되는 Chrome WebDriver fixture.
+
+    GitHub Actions 등 CI 환경(디스플레이 없음)에서는 환경변수 CI=true가 자동으로
+    설정되므로, 이 값을 감지해 headless 모드로 전환한다. 로컬(CI 미설정)에서는 기존과
+    동일하게 headed로 동작한다.
+    """
+    options = Options()
+    is_ci = os.environ.get("CI") == "true"
+    if is_ci:
+        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
+    driver = webdriver.Chrome(options=options)
+    if not is_ci:
+        # headless 모드에서는 --window-size 인자로 뷰포트 크기를 이미 고정하므로
+        # maximize_window()를 호출하지 않는다. 실측 결과 headless에서 maximize_window()를
+        # 호출하면 오히려 800x600으로 축소되는 것을 확인했다(Shrimp Task 820a9890 검증).
+        driver.maximize_window()
     yield driver
     driver.quit()
 

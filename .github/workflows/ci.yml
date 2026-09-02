@@ -1,0 +1,53 @@
+name: QA Automation CI
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  automation-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        working-directory: automation
+        run: pip install -r requirements.txt
+
+      - name: Run automation tests
+        id: run_tests
+        working-directory: automation
+        continue-on-error: true
+        env:
+          CI: 'true'
+          ACTEST1_PASSWORD: ${{ secrets.ACTEST1_PASSWORD }}
+          ACTEST2_PASSWORD: ${{ secrets.ACTEST2_PASSWORD }}
+          ACTEST3_PASSWORD: ${{ secrets.ACTEST3_PASSWORD }}
+        run: pytest tests/ --html=reports/report.html --self-contained-html --junitxml=reports/results.xml
+
+      - name: Upload test reports and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            automation/reports/
+            automation/screenshots/
+
+      - name: Notify Slack on failure
+        # run_tests가 continue-on-error: true라 실패해도 job 결론에 즉시 반영되지
+        # 않으므로, 여기서는 failure() 대신 run_tests의 개별 outcome을 직접 확인한다.
+        if: steps.run_tests.outcome == 'failure'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python scripts/notify_slack/notify.py automation/reports/results.xml
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1
