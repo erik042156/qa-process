@@ -3,6 +3,10 @@ name: QA Automation CI
 on:
   push:
     branches: [master]
+  schedule:
+    # 매일 한국시간(KST, UTC+9) 오전 9시 = UTC 00:00
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   automation-test:
