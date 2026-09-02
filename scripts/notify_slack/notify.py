@@ -12,10 +12,12 @@ GitHub Secrets/환경변수로만 관리, 하드코딩 금지)
 import json
 import logging
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +25,29 @@ DEFAULT_JUNIT_XML_PATH = "automation/reports/results.xml"
 MAX_LISTED_FAILURES = 10
 MAX_MESSAGE_LENGTH = 200
 
+# pytest가 실패 traceback 마지막 줄에 남기는 "path/to/test_x.py:123: ExceptionType"
+# 형식의 위치 정보를 추출한다(실제 실패가 발생한 코드 위치를 정확히 짚기 위함).
+_LOCATION_LINE_PATTERN = re.compile(r"^(?P<path>\S+\.py):(?P<line>\d+): ", re.MULTILINE)
+
+
+def _extract_location(node: ET.Element) -> Optional[str]:
+    """failure/error 엘리먼트의 traceback 텍스트에서 실패 위치(파일:라인)를 추출한다."""
+    matches = _LOCATION_LINE_PATTERN.findall(node.text or "")
+    if not matches:
+        return None
+    path, line = matches[-1]
+    return f"{path}:{line}"
+
+
+def _short_message(node: ET.Element) -> str:
+    """failure/error의 message 속성에서 예외 종류와 사유가 담긴 첫 줄만 추출한다."""
+    raw = (node.get("message") or "").strip()
+    first_line = raw.split("\n", 1)[0].strip()
+    return (first_line or raw)[:MAX_MESSAGE_LENGTH]
+
 
 def parse_junit_xml(path: str) -> dict:
-    """JUnit XML을 파싱해 총 테스트 수/실패 수/실패 목록(테스트명, 사유 요약)을 반환한다."""
+    """JUnit XML을 파싱해 총 테스트 수/실패 수/실패 목록(위치, 테스트명, 사유)을 반환한다."""
     tree = ET.parse(path)
     root = tree.getroot()
     suite = root if root.tag == "testsuite" else root.find("testsuite")
@@ -38,11 +60,11 @@ def parse_junit_xml(path: str) -> dict:
         error_el = testcase.find("error")
         node = failure_el if failure_el is not None else error_el
         if node is not None:
-            message = (node.get("message") or "").replace("\n", " ")
             failures.append(
                 {
                     "name": f"{testcase.get('classname')}::{testcase.get('name')}",
-                    "message": message[:MAX_MESSAGE_LENGTH],
+                    "location": _extract_location(node),
+                    "message": _short_message(node),
                 }
             )
 
@@ -54,10 +76,18 @@ def parse_junit_xml(path: str) -> dict:
 
 
 def build_slack_message(summary: dict) -> dict:
-    """Slack Incoming Webhook payload를 구성한다."""
+    """Slack Incoming Webhook payload를 구성한다.
+
+    각 실패마다 "어떤 코드(파일:라인)에서 어떤 에러"인지 한눈에 보이도록, 위치+테스트명을
+    한 줄로, 실제 에러 메시지를 그다음 줄로 나눠서 보여준다.
+    """
     lines = [f"*QA 자동화 테스트 실패*: {summary['failed']}/{summary['total']}건 실패"]
     for failure in summary["failures"][:MAX_LISTED_FAILURES]:
-        lines.append(f"- `{failure['name']}`: {failure['message']}")
+        if failure["location"]:
+            lines.append(f"- `{failure['location']}` ({failure['name']})")
+        else:
+            lines.append(f"- `{failure['name']}`")
+        lines.append(f"  ↳ {failure['message']}")
     remaining = summary["failed"] - len(summary["failures"][:MAX_LISTED_FAILURES])
     if remaining > 0:
         lines.append(f"...외 {remaining}건")
