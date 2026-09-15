@@ -1,7 +1,6 @@
-# Automation Exercise QA Automation
+# AI를 활용한 QA process
 
-[Automation Exercise](https://automationexercise.com/)(테스트 자동화 연습용 이커머스
-사이트)를 대상으로, 요구사항 분석 → Test Case 설계 → 자동화 대상 선정 → E2E 구현 → CI
+요구사항 분석 → Test Case 설계 → 자동화 대상 선정 → E2E 구현 → CI
 결과 확인까지 이어지는 QA Automation Workflow를 구축한 프로젝트입니다.
 
 단순히 AI를 이용해 결과물을 생성하는 것이 아니라, 반복적인 QA 작업은 AI가 보조하고
@@ -9,6 +8,9 @@
 승인을 유지하는 구조를 목표로 설계했습니다.
 
 전체 운영 원칙은 [`CLAUDE.md`](./CLAUDE.md)를 따릅니다.
+
+대상 : 테스트 자동화 연습용 이커머스
+사이트[Automation Exercise](https://automationexercise.com/)
 
 ---
 
